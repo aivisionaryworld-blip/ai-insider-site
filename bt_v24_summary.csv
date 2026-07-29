@@ -1,0 +1,2 @@
+system,window,starting_capital_$,monthly_deposit_$,final_capital_$,total_deposited_$,profit_$,roi_total_%,annualized_simple_roi_%,max_drawdown_%,positions,wins,losses,win_rate_%,avg_days_held,rating_breakdown
+V24 Signal Engine Backtest,2021-07-01 → 2026-06-30,1800.0,200.0,162511.28,13800.0,148711.28,1077.62,216.74,-12.06,367,286,81,77.93,18.8,B:170; A:146; A+:51
