@@ -301,6 +301,7 @@ NAV = """
   <div class="nav-links">
     <a href="/">Signals</a>
     <a href="/track-record">Track Record</a>
+    <a href="/leaderboard">Leaderboard</a>
     <a href="/how-it-works">How It Works</a>
     <a href="/#pricing">Pricing</a>
     <a class="cta ghost" href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
@@ -579,7 +580,102 @@ TRACK_RECORD_TEMPLATE = """
 """
 
 
-@app.route("/track-record")
+def load_leaderboard_data():
+    """Reads REAL resolved outcomes only — never estimates or projects an
+    unresolved signal's eventual result. Splits into week/month/YTD windows."""
+    path = os.path.join(BASE_DIR, "public_signal_outcomes.csv")
+    if not os.path.exists(path):
+        return None
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return None
+    if df.empty or "status" not in df.columns:
+        return None
+
+    df["resolved_date"] = pd.to_datetime(df["resolved_date"], errors="coerce")
+    resolved = df[df["status"].isin(["WIN", "LOSS"]) & df["resolved_date"].notna()].copy()
+    if resolved.empty:
+        return {"empty": True, "open_count": int((df["status"] == "OPEN").sum())}
+
+    now = pd.Timestamp.now()
+    windows = {
+        "week": resolved[resolved["resolved_date"] >= now - pd.Timedelta(days=7)],
+        "month": resolved[resolved["resolved_date"] >= now - pd.Timedelta(days=30)],
+        "ytd": resolved[resolved["resolved_date"] >= pd.Timestamp(year=now.year, month=1, day=1)],
+    }
+    out = {"empty": False, "open_count": int((df["status"] == "OPEN").sum())}
+    for name, w in windows.items():
+        top = w.nlargest(10, "pnl_pct") if not w.empty else pd.DataFrame()
+        out[name] = {
+            "trades": top.to_dict("records"),
+            "n_resolved": len(w),
+            "win_rate": round((w["status"] == "WIN").mean() * 100, 1) if len(w) else None,
+        }
+    return out
+
+
+@app.route("/leaderboard")
+def leaderboard():
+    data = load_leaderboard_data()
+    return render_template_string(LEADERBOARD_TEMPLATE, data=data)
+
+
+LEADERBOARD_TEMPLATE = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Leaderboard &mdash; AI INSIDER</title>
+<style>""" + BASE_CSS + """</style>
+</head><body>
+""" + NAV + """
+<div class="hero"><div class="wrap">
+  <span class="eyebrow">Best resolved signals &middot; real outcomes only</span>
+  <h1>The <span class="grad">best-performing</span> signals.</h1>
+  <p>Ranked from signals that actually resolved (hit target or expired) &mdash; never an in-progress guess. This is signal performance, not a user leaderboard; nothing here is self-reported.</p>
+</div></div>
+
+<section><div class="wrap">
+  {% if data is none %}
+  <div class="empty">Leaderboard data not published yet.</div>
+  {% elif data.empty %}
+  <div class="empty">No signals have resolved yet ({{ data.open_count }} still in progress &mdash; even the fastest signals take up to 30 days to resolve). Check back soon.</div>
+  {% else %}
+
+  {% for window, label in [('week','This Week'), ('month','This Month'), ('ytd','Year to Date')] %}
+  <div class="section-head" style="text-align:left;margin:0 0 20px;">
+    <span class="eyebrow">{{ label }}</span>
+    <h2 style="font-size:22px;">
+      {% if data[window].n_resolved %}{{ data[window].n_resolved }} resolved &middot; {{ data[window].win_rate }}% win rate{% else %}No resolved signals in this window yet{% endif %}
+    </h2>
+  </div>
+  {% if data[window].trades %}
+  <div class="trade-grid" style="margin-bottom:40px;">
+    {% for t in data[window].trades[:6] %}
+    <div class="trade-card">
+      <div class="trade-top">
+        <div class="trade-avatar">{{ t.ticker[:2] }}</div>
+        <div class="trade-gain {{ 'pos' if t.pnl_pct >= 0 else 'neg' }}">{{ '+' if t.pnl_pct >= 0 else '' }}{{ t.pnl_pct }}%</div>
+      </div>
+      <div class="trade-ticker">${{ t.ticker }}</div>
+      <div class="trade-meta">Signaled {{ t.signal_date }} &middot; resolved {{ t.resolved_date.strftime('%Y-%m-%d') if t.resolved_date is not string else t.resolved_date }}</div>
+      <span class="trade-badge {{ t.rating|replace('+','plus') }}">{{ t.rating }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty" style="margin-bottom:40px;">Nothing resolved in this window yet.</div>
+  {% endif %}
+  {% endfor %}
+
+  {% endif %}
+  """ + ad_slot("Ad — leaderboard") + """
+</div></section>
+
+""" + FOOTER.replace("{{ year }}", str(datetime.now().year)) + """
+</body></html>
+"""
+
+
+
 def track_record():
     return render_template_string(
         TRACK_RECORD_TEMPLATE,
