@@ -30,7 +30,9 @@ import sys
 from datetime import datetime
 
 import pandas as pd
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, abort
+
+from returns_engine import compute_all_returns, METRIC_EXPLANATIONS
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -98,6 +100,20 @@ def load_backtest_summary():
         return None
     try:
         return pd.read_csv(path).iloc[0].to_dict()
+    except Exception:
+        return None
+
+
+def load_real_returns():
+    """PRIORITY 0 FIX: real XIRR + time-weighted return computed live from
+    bt_v24_equity.csv — never a hardcoded 'annualized' figure. Returns None
+    if the equity file isn't present, so the page can show an honest
+    'not available yet' state instead of a wrong number."""
+    path = os.path.join(BASE_DIR, "bt_v24_equity.csv")
+    if not os.path.exists(path):
+        return None
+    try:
+        return compute_all_returns(path)
     except Exception:
         return None
 
@@ -281,13 +297,13 @@ footer { padding: 48px 0 60px; border-top: 1px solid var(--border); }
 
 NAV = """
 <nav><div class="wrap">
-  <div class="brand"><span class="dot"></span>FORM4SIGNAL</div>
+  <div class="brand"><span class="dot"></span>AI INSIDER</div>
   <div class="nav-links">
     <a href="/">Signals</a>
     <a href="/track-record">Track Record</a>
     <a href="/how-it-works">How It Works</a>
     <a href="/#pricing">Pricing</a>
-    <a class="cta ghost" href="#" style="pointer-events:none;opacity:0.5;">Sign up (soon)</a>
+    <a class="cta ghost" href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
   </div>
 </div></nav>
 """
@@ -296,7 +312,7 @@ FOOTER = """
 <footer><div class="wrap">
   <div class="footer-grid">
     <div class="footer-col">
-      <div class="brand" style="margin-bottom:14px;"><span class="dot"></span>FORM4SIGNAL</div>
+      <div class="brand" style="margin-bottom:14px;"><span class="dot"></span>AI INSIDER</div>
       <p style="color:var(--muted);font-size:13px;max-width:220px;">Scored insider buying, straight from SEC filings.</p>
     </div>
     <div class="footer-col">
@@ -310,8 +326,8 @@ FOOTER = """
       <a href="/about">About</a>
     </div>
   </div>
-  <p class="footer-note">FORM4SIGNAL tracks publicly available SEC Form 4 filings. This is not insider trading &mdash; it's public information. Nothing on this site is investment advice. All investing involves risk. Past performance, live or backtested, does not guarantee future results.</p>
-  <p style="color:var(--muted);font-size:12px;margin-top:16px;">&copy; {{ year }} FORM4SIGNAL</p>
+  <p class="footer-note">AI INSIDER tracks publicly available SEC Form 4 filings. This is not insider trading &mdash; it's public information. Nothing on this site is investment advice. All investing involves risk. Past performance, live or backtested, does not guarantee future results.</p>
+  <p style="color:var(--muted);font-size:12px;margin-top:16px;">&copy; {{ year }} AI INSIDER</p>
 </div></footer>
 """
 
@@ -327,7 +343,7 @@ def ad_slot(label="Advertisement"):
 HOME_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FORM4SIGNAL &mdash; Scored insider buying from SEC filings</title>
+<title>AI INSIDER &mdash; Scored insider buying from SEC filings</title>
 <meta name="description" content="Every open-market insider purchase, scored against a 5-year backtest. Free, public, updated daily from SEC EDGAR.">
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -411,7 +427,7 @@ HOME_TEMPLATE = """
       </ul>
     </div>
     <div class="compare-card highlight">
-      <h3>FORM4SIGNAL</h3>
+      <h3>AI INSIDER</h3>
       <ul>
         <li>Filtered against a 5-year backtest of scoring rules</li>
         <li>C-suite involvement, ownership increase, price setup all weighed</li>
@@ -443,7 +459,7 @@ HOME_TEMPLATE = """
       <span class="rec-tag">Planned</span>
       <h3>Alerts</h3>
       <div class="desc">The moment a signal fires</div>
-      <div class="price">&mdash;<span class="per"> /mo</span></div>
+      <div class="price" style="font-size:20px;"><a href="mailto:hello@aiinsider.store?subject=Waitlist" style="color:var(--accent);text-decoration:none;">Join waitlist &rarr;</a></div>
       <ul>
         <li>Real-time delivery on qualifying filings</li>
         <li>Full historical signal archive</li>
@@ -497,7 +513,7 @@ def home():
 
 TRACK_RECORD_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
-<title>Track Record &mdash; FORM4SIGNAL</title>
+<title>Track Record &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
 """ + NAV + """
@@ -509,20 +525,36 @@ TRACK_RECORD_TEMPLATE = """
 
 <section><div class="wrap">
   <div class="section-head" style="text-align:left;margin:0 0 28px;">
-    <span class="eyebrow">2021&ndash;2026 simulation</span>
+    <span class="eyebrow">2021&ndash;2026 simulation &middot; Hypothetical backtest</span>
     <h2 style="font-size:26px;">5-year backtest</h2>
   </div>
-  {% if backtest %}
+  {% if returns %}
   <div class="stat-grid">
-    <div class="stat"><div class="n">{{ backtest.get('annualized_simple_roi_%','\u2014') }}%</div><div class="l">Annualized</div></div>
+    <div class="stat" title="{{ metric_help.cumulative_roi_pct }}">
+      <div class="n">{{ returns.cumulative_roi_pct }}%</div>
+      <div class="l">Cumulative ROI &nbsp;<span style="opacity:0.6;cursor:help;">?</span></div>
+    </div>
+    <div class="stat" title="{{ metric_help.xirr_pct }}">
+      <div class="n">{{ returns.xirr_pct }}%</div>
+      <div class="l">XIRR (money-weighted) &nbsp;<span style="opacity:0.6;cursor:help;">?</span></div>
+    </div>
+    <div class="stat" title="{{ metric_help.twr_annualized_pct }}">
+      <div class="n">{{ returns.twr_annualized_pct }}%</div>
+      <div class="l">Time-weighted CAGR &nbsp;<span style="opacity:0.6;cursor:help;">?</span></div>
+    </div>
+    <div class="stat"><div class="n">${{ "{:,.0f}".format(returns.total_deposited) }}</div><div class="l">Total deposited</div></div>
+    <div class="stat"><div class="n">${{ "{:,.0f}".format(returns.profit) }}</div><div class="l">Profit</div></div>
+    {% if backtest %}
     <div class="stat"><div class="n">{{ backtest.get('win_rate_%','\u2014') }}%</div><div class="l">Win rate</div></div>
     <div class="stat"><div class="n">{{ backtest.get('max_drawdown_%','\u2014') }}%</div><div class="l">Max drawdown</div></div>
     <div class="stat"><div class="n">{{ backtest.get('positions','\u2014') }}</div><div class="l">Trades simulated</div></div>
+    {% endif %}
   </div>
+  <p style="color:var(--muted);font-size:12px;margin-top:16px;">Hover any metric for what it means. XIRR and time-weighted CAGR are computed live from the daily equity ledger &mdash; not hardcoded.</p>
   {% else %}
-  <div class="empty">Backtest summary not published yet.</div>
+  <div class="empty">Return calculations not available &mdash; equity ledger not published yet.</div>
   {% endif %}
-  <div class="disclaimer-box"><strong>Read this first:</strong> backtests are simulations, not predictions. They can carry survivorship bias and can't capture every real-world cost or friction. Treat this as an upper bound, not a promise.</div>
+  <div class="disclaimer-box"><strong>Hypothetical backtest, not investor performance:</strong> this is a simulation, not a live track record. It can carry survivorship bias and does not capture every real-world cost or friction. See <a href="/how-it-works" style="color:var(--accent);">methodology</a> for assumptions on fees, slippage, and entry timing.</div>
 </div></section>
 
 <section><div class="wrap">
@@ -552,6 +584,7 @@ def track_record():
     return render_template_string(
         TRACK_RECORD_TEMPLATE,
         backtest=load_backtest_summary(), live=load_live_track_record(),
+        returns=load_real_returns(), metric_help=METRIC_EXPLANATIONS,
     )
 
 
@@ -559,7 +592,7 @@ def track_record():
 
 HOW_IT_WORKS_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
-<title>How It Works &mdash; FORM4SIGNAL</title>
+<title>How It Works &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
 """ + NAV + """
@@ -586,7 +619,7 @@ def how_it_works():
 
 SIMPLE_PAGE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
-<title>{{ title }} &mdash; FORM4SIGNAL</title>
+<title>{{ title }} &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
 """ + NAV + """
@@ -599,19 +632,17 @@ SIMPLE_PAGE = """
 """
 
 DISCLAIMER_BODY = """
-<p style="color:var(--amber);"><strong>DRAFT &mdash; have a securities attorney review before real launch or any paid tier.</strong></p>
-<p>FORM4SIGNAL publishes information derived from public SEC filings for informational and educational purposes only. Nothing on this site constitutes investment advice, a recommendation, or a solicitation to buy or sell any security. We are not a registered investment adviser or broker-dealer.</p>
+<p>AI INSIDER publishes information derived from public SEC filings for informational and educational purposes only. Nothing on this site constitutes investment advice, a recommendation, or a solicitation to buy or sell any security. We are not a registered investment adviser or broker-dealer.</p>
 <p>Past performance, whether backtested or live, is not indicative of future results. All investing involves risk, including possible loss of principal. Do your own research and consult a licensed financial professional before making investment decisions.</p>
 <p>Backtested results shown on this site are hypothetical, have inherent limitations, and do not represent actual trading.</p>
 """
 
 PRIVACY_BODY = """
-<p style="color:var(--amber);"><strong>DRAFT &mdash; have a lawyer review before launch, especially once analytics, ads, or payments are added.</strong></p>
 <p>This site does not currently collect personal information beyond standard web server logs. If ads are enabled, third-party providers (e.g. Google AdSense) may use cookies to serve relevant ads &mdash; see their own privacy policies.</p>
 """
 
 ABOUT_BODY = """
-<p>FORM4SIGNAL is built and run by one person who got tired of scrolling insider-trading tables by hand. It started as a personal tool; this public version shares the same signal-scoring engine, minus any personal position sizing.</p>
+<p>AI INSIDER is built and run by one person who got tired of scrolling insider-trading tables by hand. It started as a personal tool; this public version shares the same signal-scoring engine, minus any personal position sizing.</p>
 """
 
 
