@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: ai-insider-site
+    runtime: python
+    plan: free
+    region: frankfurt
+    buildCommand: pip install -r requirements.txt
+    startCommand: "gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 2 --timeout 120 public_site:app"
+    healthCheckPath: /
+    autoDeployTrigger: commit
