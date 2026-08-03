@@ -154,6 +154,7 @@ def load_public_signals():
         take_profit = r.get("take_profit")
         stop_loss = r.get("stop_loss")
         max_hold = r.get("max_hold")
+        model_allocation_pct = r.get("model_allocation_pct")
         range_position_pct = None
         target_pct = None
         try:
@@ -170,6 +171,14 @@ def load_public_signals():
                 target_pct = round((target_num / entry_num - 1) * 100, 1)
         except (NameError, TypeError, ValueError):
             pass
+        try:
+            model_allocation_pct = float(model_allocation_pct)
+            if not np.isfinite(model_allocation_pct):
+                model_allocation_pct = None
+            else:
+                model_allocation_pct = round(max(0, min(100, model_allocation_pct)), 2)
+        except (TypeError, ValueError):
+            model_allocation_pct = None
         rows.append({
             "ticker": r.get("ticker", ""),
             "company": clean_text(r.get("company", "")),
@@ -183,6 +192,7 @@ def load_public_signals():
             "target_pct": target_pct,
             "max_hold": None if pd.isna(max_hold) else max_hold,
             "stop_loss": None if pd.isna(stop_loss) else stop_loss,
+            "model_allocation_pct": model_allocation_pct,
             "reason": clean_text(r.get("reason", ""))[:900],
             "red_flags": clean_text(r.get("red_flags", ""))[:700],
             "insider_name": r.get("insider_name", ""),
@@ -197,8 +207,7 @@ def load_public_signals():
             "range_position_pct": range_position_pct,
             "ret_20d_pct": r.get("ret_20d_pct"),
             "avg_volume_20d": r.get("avg_volume_20d"),
-            # NOT included: allocation_pct, basket_allocation_$, basket_shares
-            # — those are personal position-sizing decisions, not public research.
+            # NOT included: private cash allocation or share quantity.
         })
     return rows
 
@@ -1729,7 +1738,7 @@ footer {
 }
 .signal-framework {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
   border-bottom: 1px solid rgba(255,255,255,.075);
   background: rgba(7, 11, 14, .24);
 }
@@ -1930,7 +1939,10 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const detail = document.createElement('p');
     const buyer = signal.insider_name || 'Open-market insider purchase';
     const price = signal.entry_price ? ` near $${signal.entry_price}` : '';
-    detail.textContent = `${buyer}${price}. Published research only — not a recommendation.`;
+    const allocation = signal.model_allocation_pct !== null && signal.model_allocation_pct !== undefined
+      ? ` Model allocation: ${Number(signal.model_allocation_pct).toLocaleString()}%.`
+      : '';
+    detail.textContent = `${buyer}${price}.${allocation} Published research only — not a recommendation.`;
     const actions = document.createElement('div');
     actions.className = 'signal-toast-actions';
     const link = document.createElement('a');
@@ -2017,7 +2029,7 @@ def ad_slot(label="Advertisement"):
 PUBLIC_SIGNAL_API_FIELDS = (
     "ticker", "company", "rating", "conviction", "hold_mode", "signal_date",
     "trade_date", "entry_price", "take_profit", "target_pct", "max_hold",
-    "stop_loss", "reason", "red_flags",
+    "stop_loss", "model_allocation_pct", "reason", "red_flags",
     "insider_name", "insider_title", "total_amount", "market_cap",
     "rsi14", "low_52w", "high_52w", "range_position_pct",
     "ret_20d_pct", "avg_volume_20d",
@@ -2288,6 +2300,7 @@ HOME_TEMPLATE = """
         <div class="signal-framework-cell"><span>Model target</span><strong>{{ '$%.2f'|format(s.take_profit) if s.take_profit is not none else 'Not set' }}</strong><small>{{ '%+.1f'|format(s.target_pct) + '%' if s.target_pct is not none else 'No target' }}</small></div>
         <div class="signal-framework-cell"><span>Research window</span><strong>{{ '%.0f'|format(s.max_hold) + ' days' if s.max_hold is not none else 'Open' }}</strong><small>{{ s.hold_mode|title if s.hold_mode else 'Signal review' }}</small></div>
         <div class="signal-framework-cell"><span>Exit risk rule</span><strong>{{ '$%.2f'|format(s.stop_loss) if s.stop_loss is not none else 'No fixed stop' }}</strong><small>Model parameter</small></div>
+        <div class="signal-framework-cell"><span>Model allocation</span><strong>{{ '%.2f'|format(s.model_allocation_pct)|replace('.00', '') + '%' if s.model_allocation_pct is not none else 'Not set' }}</strong><small>Model portfolio</small></div>
       </div>
       <div class="signal-brief-body">
         {% if s.insider_name %}<div class="signal-insider-line">{{ s.insider_name }}{% if s.insider_title %} &middot; {{ s.insider_title }}{% endif %}{% if s.total_amount %} &middot; ${{ "{:,.0f}".format(s.total_amount) }} purchase{% endif %}{% if s.trade_date %} &middot; {{ s.trade_date }}{% endif %}</div>{% endif %}
@@ -2307,7 +2320,7 @@ HOME_TEMPLATE = """
         <div class="mkt-cell"><span class="l">52W High</span><span class="v">{{ '$%.2f'|format(s.high_52w) if s.high_52w else '—' }}</span></div>
         <div class="mkt-cell"><span class="l">20D Chg</span><span class="v {{ 'hi' if s.ret_20d_pct and s.ret_20d_pct < 0 else ('lo' if s.ret_20d_pct and s.ret_20d_pct > 0 else '') }}">{{ '%+.1f'|format(s.ret_20d_pct) + '%' if s.ret_20d_pct is not none else '—' }}</span></div>
         </div>
-        <p class="signal-sizing-note"><strong>Allocation:</strong> subscriber-set. Public research does not publish private account size, dollar allocation or share count.</p>
+        <p class="signal-sizing-note"><strong>Model allocation:</strong> a research-framework percentage, not a personalized amount. Private account size, dollar allocation and share count are never published.</p>
       </div>
     </article>
     {% endfor %}
