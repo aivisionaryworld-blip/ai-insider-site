@@ -1,0 +1,21 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+site.log
+
+# Private trading/account data — never publish
+v23_portfolio.csv
+trade_log.csv
+*confirmed_basket_executable.csv
+*allocation*.csv
+*shares*.csv
+
+# Deployment backups
+*.backup-*

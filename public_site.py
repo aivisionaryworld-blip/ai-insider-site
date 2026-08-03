@@ -25,12 +25,14 @@ Disclaimer/Privacy/Terms text is DRAFT boilerplate, not legal advice —
 have a securities attorney review before real launch or any paid tier.
 """
 
+import hashlib
 import os
 import sys
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
-from flask import Flask, render_template_string, abort
+from flask import Flask, render_template_string, abort, jsonify
 
 from returns_engine import compute_all_returns, METRIC_EXPLANATIONS
 
@@ -45,12 +47,96 @@ except ImportError:
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ADSENSE_CLIENT_ID = os.environ.get("ADSENSE_CLIENT_ID", "").strip()
+PUBLIC_CURRENT_SIGNALS = os.path.join(BASE_DIR, "public_signals_current.csv")
+LEGACY_CURRENT_SIGNALS = os.path.join(BASE_DIR, "v23_t212_aggressive_alloc_confirmed_basket_executable.csv")
+
+
+def current_signals_path():
+    """Prefer the stripped public snapshot; retain the local legacy input only
+    as a backwards-compatible fallback for the private development machine."""
+    return PUBLIC_CURRENT_SIGNALS if os.path.exists(PUBLIC_CURRENT_SIGNALS) else LEGACY_CURRENT_SIGNALS
 
 
 # ── data loading (public-safe fields only) ────────────────────────
 
+def load_filings_table(limit=30):
+    """Real recent filings for a dense, professional data-table view —
+    same public-safe fields as everywhere else, richer since the logger
+    now captures insider identity + market data."""
+    path = os.path.join(BASE_DIR, "public_signal_history.csv")
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return []
+    if df.empty:
+        return []
+    recent = df.sort_values("signal_date", ascending=False).head(limit)
+    cols = ["ticker", "rating", "signal_date", "entry_price", "insider_name",
+            "insider_title", "total_amount", "market_cap"]
+    for c in cols:
+        if c not in recent.columns:
+            recent[c] = None
+    return recent[cols].to_dict("records")
+
+
+def load_trust_stats():
+    """Real aggregate numbers from actual history — never fabricated.
+    Returns None (honest empty state) if there's not enough history yet."""
+    path = os.path.join(BASE_DIR, "public_signal_history.csv")
+    if not os.path.exists(path):
+        return None
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return None
+    if df.empty:
+        return None
+    return {
+        "total_filings": len(df),
+        "unique_tickers": df["ticker"].nunique(),
+        "unique_insiders": df["insider_name"].nunique() if "insider_name" in df.columns else 0,
+        "days_tracked": df["signal_date"].nunique(),
+    }
+
+
+def load_ticker_items(limit=15):
+    """Real recent signals for the scrolling ticker strip — pulls from the
+    permanent history log (public-safe fields only, same as everywhere
+    else on the site), not fabricated."""
+    path = os.path.join(BASE_DIR, "public_signal_history.csv")
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return []
+    if df.empty:
+        return []
+    recent = df.sort_values("signal_date", ascending=False).head(limit)
+    return recent[["ticker", "rating", "signal_date"]].to_dict("records")
+
+
+def load_scan_status():
+    """Honest status — real last-modified time of the signal file, never
+    claimed as 'live' or 'real-time' since this is a periodic scan, not a
+    streaming feed."""
+    path = current_signals_path()
+    if not os.path.exists(path):
+        return {"available": False}
+    mtime = datetime.fromtimestamp(os.path.getmtime(path))
+    age_hours = (datetime.now() - mtime).total_seconds() / 3600
+    return {
+        "available": True,
+        "last_scan": mtime.strftime("%Y-%m-%d %H:%M"),
+        "hours_ago": round(age_hours, 1),
+        "fresh": age_hours < 30,  # roughly "since yesterday's scan"
+    }
+
+
 def load_public_signals():
-    path = os.path.join(BASE_DIR, "v23_t212_aggressive_alloc_confirmed_basket_executable.csv")
+    path = current_signals_path()
     if not os.path.exists(path):
         return []
     try:
@@ -59,12 +145,60 @@ def load_public_signals():
         return []
     rows = []
     for _, r in df.iterrows():
+        def clean_text(value):
+            return "" if value is None or pd.isna(value) else str(value).strip()
+
+        entry_price = r.get("confirmed_entry", r.get("current_price", ""))
+        low_52w = r.get("low_52w")
+        high_52w = r.get("high_52w")
+        take_profit = r.get("take_profit")
+        stop_loss = r.get("stop_loss")
+        max_hold = r.get("max_hold")
+        range_position_pct = None
+        target_pct = None
+        try:
+            entry_num = float(entry_price)
+            low_num = float(low_52w)
+            high_num = float(high_52w)
+            if np.isfinite(entry_num) and np.isfinite(low_num) and np.isfinite(high_num) and high_num > low_num:
+                range_position_pct = round(max(0, min(100, (entry_num - low_num) / (high_num - low_num) * 100)), 1)
+        except (TypeError, ValueError):
+            pass
+        try:
+            target_num = float(take_profit)
+            if np.isfinite(entry_num) and entry_num > 0 and np.isfinite(target_num):
+                target_pct = round((target_num / entry_num - 1) * 100, 1)
+        except (NameError, TypeError, ValueError):
+            pass
         rows.append({
             "ticker": r.get("ticker", ""),
+            "company": clean_text(r.get("company", "")),
             "rating": r.get("rating", ""),
-            "entry_price": r.get("confirmed_entry", r.get("current_price", "")),
-            "reason": str(r.get("reason", ""))[:280],
+            "conviction": clean_text(r.get("conviction", "")),
+            "hold_mode": clean_text(r.get("hold_mode", "")),
+            "signal_date": clean_text(r.get("signal_date", "")) or clean_text(r.get("trade_date", "")) or clean_text(r.get("transaction_date", "")) or clean_text(r.get("date", "")),
+            "trade_date": r.get("trade_date", ""),
+            "entry_price": entry_price,
+            "take_profit": None if pd.isna(take_profit) else take_profit,
+            "target_pct": target_pct,
+            "max_hold": None if pd.isna(max_hold) else max_hold,
+            "stop_loss": None if pd.isna(stop_loss) else stop_loss,
+            "reason": clean_text(r.get("reason", ""))[:900],
+            "red_flags": clean_text(r.get("red_flags", ""))[:700],
+            "insider_name": r.get("insider_name", ""),
+            "insider_title": r.get("insider_title", ""),
+            "total_amount": r.get("total_amount", 0) or 0,
+            # market data — fully public financial info, already fetched
+            # during the scan, just carried through here
+            "market_cap": r.get("market_cap"),
+            "rsi14": r.get("rsi14"),
+            "low_52w": low_52w,
+            "high_52w": high_52w,
+            "range_position_pct": range_position_pct,
+            "ret_20d_pct": r.get("ret_20d_pct"),
+            "avg_volume_20d": r.get("avg_volume_20d"),
             # NOT included: allocation_pct, basket_allocation_$, basket_shares
+            # — those are personal position-sizing decisions, not public research.
         })
     return rows
 
@@ -160,17 +294,42 @@ body {
   background: var(--bg); color: var(--text);
   font-family: 'Inter', -apple-system, sans-serif;
   margin: 0; line-height: 1.5; font-size: 15px;
+  position: relative; overflow-x: hidden;
 }
 .mono { font-family: 'JetBrains Mono', monospace; }
 h1, h2, h3 { font-weight: 700; letter-spacing: -0.02em; margin: 0; }
 a { color: inherit; }
-.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+/* animated gradient mesh background — the "more energy" layer */
+.bg-mesh {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+}
+.bg-mesh span {
+  position: absolute; border-radius: 50%; filter: blur(90px); opacity: 0.16;
+}
+.bg-mesh .b1 {
+  width: 480px; height: 480px; background: var(--accent);
+  top: -160px; left: -100px; animation: drift1 22s ease-in-out infinite;
+}
+.bg-mesh .b2 {
+  width: 420px; height: 420px; background: var(--amber);
+  top: 20%; right: -140px; animation: drift2 26s ease-in-out infinite;
+}
+.bg-mesh .b3 {
+  width: 380px; height: 380px; background: #5f7de8;
+  bottom: -120px; left: 30%; animation: drift3 30s ease-in-out infinite;
+}
+@keyframes drift1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(60px,80px); } }
+@keyframes drift2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-70px,50px); } }
+@keyframes drift3 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(50px,-60px); } }
+@media (prefers-reduced-motion: reduce) {
+  .bg-mesh span { animation: none; }
+}
 
 nav {
   position: sticky; top: 0; z-index: 10;
   background: rgba(8,9,13,0.85); backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
-  padding: 16px 0;
 }
 nav .wrap { display: flex; justify-content: space-between; align-items: center; }
 .brand { font-weight: 800; font-size: 17px; display: flex; align-items: center; gap: 8px; }
@@ -190,17 +349,30 @@ nav .wrap { display: flex; justify-content: space-between; align-items: center; 
 .hero .eyebrow {
   color: var(--accent); font-size: 12px; font-weight: 600; text-transform: uppercase;
   letter-spacing: 0.1em; margin-bottom: 18px; display: inline-block;
+  animation: eyebrow-in 0.6s ease-out;
 }
+@keyframes eyebrow-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 .hero h1 {
   font-size: 52px; line-height: 1.08; max-width: 780px; margin: 0 auto;
+  animation: hero-in 0.7s ease-out 0.1s both;
 }
+@keyframes hero-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 .hero h1 .grad {
-  background: linear-gradient(90deg, var(--accent), #7de8c7);
+  background: linear-gradient(90deg, var(--accent), #7de8c7, var(--accent));
+  background-size: 200% auto;
   -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmer 4s ease-in-out infinite;
 }
-.hero p { color: var(--muted); font-size: 17px; max-width: 560px; margin: 20px auto 0; }
-.hero .ctas { margin-top: 32px; display: flex; gap: 12px; justify-content: center; }
+@keyframes shimmer { 0%,100% { background-position: 0% center; } 50% { background-position: 100% center; } }
+@media (prefers-reduced-motion: reduce) {
+  .hero .eyebrow, .hero h1 { animation: none; }
+  .hero h1 .grad { animation: none; }
+}
+.hero p { color: var(--muted); font-size: 17px; max-width: 560px; margin: 20px auto 0; animation: hero-in 0.7s ease-out 0.2s both; }
+.hero .ctas { margin-top: 32px; display: flex; gap: 12px; justify-content: center; animation: hero-in 0.7s ease-out 0.3s both; }
 .hero .cta { padding: 13px 26px; font-size: 14px; }
+.hero .cta:not(.ghost) { box-shadow: 0 0 0 rgba(78,226,166,0.4); transition: box-shadow 0.25s, transform 0.15s; }
+.hero .cta:not(.ghost):hover { box-shadow: 0 0 26px rgba(78,226,166,0.35); transform: translateY(-1px); }
 
 section { padding: 72px 0; border-top: 1px solid var(--border); }
 .section-head { text-align: center; max-width: 600px; margin: 0 auto 44px; }
@@ -211,9 +383,12 @@ section { padding: 72px 0; border-top: 1px solid var(--border); }
 .trade-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap: 18px; }
 .trade-card {
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
-.trade-card:hover { border-color: #333744; }
+.trade-card:hover {
+  border-color: var(--accent); transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.35), 0 0 20px rgba(78,226,166,0.08);
+}
 .trade-top { display: flex; justify-content: space-between; align-items: flex-start; }
 .trade-avatar {
   width: 38px; height: 38px; border-radius: 50%; background: var(--surface-2);
@@ -226,12 +401,51 @@ section { padding: 72px 0; border-top: 1px solid var(--border); }
 .trade-ticker { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px; margin-top: 12px; }
 .trade-meta { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
 .trade-narrative { font-size: 13.5px; color: #c3c6d1; margin-top: 14px; line-height: 1.6; }
+
+/* Finviz-style compact market data strip */
+.mkt-strip {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 10px;
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+}
+.mkt-cell { font-size: 11px; }
+.mkt-cell .l { color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; font-size: 9.5px; display: block; }
+.mkt-cell .v { color: var(--text); font-weight: 600; font-size: 12px; }
+.mkt-cell .v.hi { color: var(--red); }
+.mkt-cell .v.lo { color: var(--accent); }
+
+/* trust stats bar — real numbers only */
+.trust-bar {
+  display: flex; justify-content: center; gap: 48px; flex-wrap: wrap;
+  padding: 28px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.trust-stat { text-align: center; }
+.trust-stat .n { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 800; color: #fff; }
+.trust-stat .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
+
+/* professional filings data table */
+.filings-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+table.filings {
+  width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; min-width: 720px;
+}
+table.filings thead th {
+  text-align: left; padding: 12px 16px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--muted); border-bottom: 1px solid var(--border); font-weight: 600; background: var(--surface-2);
+}
+table.filings tbody td { padding: 11px 16px; border-bottom: 1px solid var(--border); }
+table.filings tbody tr:last-child td { border-bottom: none; }
+table.filings tbody tr { transition: background 0.15s; }
+table.filings tbody tr:hover { background: rgba(255,255,255,0.02); }
+table.filings .tk { font-weight: 700; color: var(--text); }
+table.filings .role { color: var(--muted); font-size: 11.5px; }
+table.filings .amt { text-align: right; }
 .trade-badge {
   display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.06em; padding: 3px 8px; border-radius: 5px; margin-top: 12px;
 }
 .trade-badge.Aplus { background: rgba(232,176,75,0.12); color: var(--amber); }
 .trade-badge.A { background: var(--accent-dim); color: var(--accent); }
+.trade-badge.Bplus { background: rgba(124,147,201,0.18); color: #9fb3d4; }
 .trade-badge.B { background: rgba(124,147,201,0.12); color: var(--b); }
 
 .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -246,7 +460,8 @@ section { padding: 72px 0; border-top: 1px solid var(--border); }
 .compare-card.highlight li::before { content: "\\2713  "; color: var(--accent); font-weight: 700; }
 
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 24px; }
-.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; transition: border-color 0.2s, transform 0.2s; }
+.stat:hover { border-color: var(--accent); transform: translateY(-2px); }
 .stat .n { font-family: 'JetBrains Mono', monospace; font-size: 30px; font-weight: 700; }
 .stat .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 6px; }
 
@@ -292,21 +507,1333 @@ footer { padding: 48px 0 60px; border-top: 1px solid var(--border); }
 .footer-col a:hover { color: var(--text); }
 .footer-note { color: var(--muted); font-size: 12px; margin-top: 40px; max-width: 640px; }
 
+/* live ticker strip */
+.ticker-bar {
+  background: #0c0d11; border-bottom: 1px solid var(--border);
+  overflow: hidden; white-space: nowrap; position: relative;
+}
+.ticker-track {
+  display: inline-flex; gap: 32px; padding: 9px 0;
+  animation: ticker-scroll 45s linear infinite;
+}
+.ticker-bar:hover .ticker-track { animation-play-state: paused; }
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-item { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.ticker-item .t-ticker { color: var(--text); font-weight: 700; }
+.ticker-item .t-rating { font-weight: 700; }
+.ticker-item .t-rating.Aplus { color: var(--amber); }
+.ticker-item .t-rating.A { color: var(--accent); }
+.ticker-item .t-rating.B { color: var(--b); }
+
+/* live scan status */
+.status-bar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 7px 0; font-size: 11.5px; color: var(--muted);
+}
+.status-bar .wrap { display: flex; align-items: center; gap: 8px; }
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: var(--accent); box-shadow: 0 0 6px var(--accent);
+  animation: statuspulse 2s ease-in-out infinite;
+}
+.status-dot.stale { background: var(--muted); box-shadow: none; animation: none; }
+@keyframes statuspulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* scroll-in animation, respects reduced motion */
+.fade-in { opacity: 0; transform: translateY(14px); transition: opacity 0.5s ease, transform 0.5s ease; }
+.fade-in.in-view { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .fade-in { opacity: 1; transform: none; transition: none; }
+  .ticker-track { animation: none; }
+  .status-dot { animation: none; }
+}
+
 .empty { color: var(--muted); padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: 10px; }
+
+/* ------------------------------------------------------------------
+   FUTURE INTELLIGENCE TERMINAL — 2026 visual system
+   A restrained, institutional take on a futuristic finance product.
+   ------------------------------------------------------------------ */
+:root {
+  --bg: #03070c;
+  --surface: rgba(9, 17, 27, 0.82);
+  --surface-2: rgba(15, 27, 41, 0.88);
+  --surface-3: #111f2e;
+  --border: rgba(137, 193, 225, 0.14);
+  --border-strong: rgba(0, 224, 255, 0.34);
+  --text: #edf8ff;
+  --muted: #8395a8;
+  --accent: #00e0ff;
+  --accent-2: #6fffc1;
+  --accent-dim: rgba(0, 224, 255, 0.09);
+  --violet: #8f7cff;
+  --red: #ff7182;
+  --amber: #ffc85a;
+  --aplus: var(--amber);
+  --a: var(--accent-2);
+  --b: #8aa7d8;
+  --radius: 18px;
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+}
+
+html { scroll-behavior: smooth; background: var(--bg); }
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 14% 8%, rgba(0, 224, 255, 0.09), transparent 32rem),
+    radial-gradient(circle at 88% 24%, rgba(143, 124, 255, 0.08), transparent 28rem),
+    linear-gradient(180deg, #03070c 0%, #050a10 42%, #03070c 100%);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  letter-spacing: -0.005em;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.24;
+  background-image:
+    linear-gradient(rgba(133, 190, 222, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(133, 190, 222, 0.055) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 78%);
+}
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.018;
+  background: repeating-linear-gradient(0deg, #fff 0, #fff 1px, transparent 1px, transparent 4px);
+}
+
+::selection { background: rgba(0, 224, 255, 0.28); color: #fff; }
+a, button { -webkit-tap-highlight-color: transparent; }
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+.wrap { max-width: 1180px; padding-left: 28px; padding-right: 28px; }
+h1, h2, h3 { letter-spacing: -0.045em; }
+
+.bg-mesh span { filter: blur(120px); opacity: 0.1; }
+.bg-mesh .b1 { background: var(--accent); width: 540px; height: 540px; }
+.bg-mesh .b2 { background: var(--violet); opacity: 0.075; }
+.bg-mesh .b3 { background: var(--accent-2); opacity: 0.06; }
+
+nav {
+  background: rgba(3, 7, 12, 0.78);
+  backdrop-filter: blur(22px) saturate(145%);
+  border-bottom: 1px solid rgba(137, 193, 225, 0.1);
+}
+.status-bar {
+  background: rgba(4, 10, 16, 0.94);
+  border-bottom: 1px solid rgba(137, 193, 225, 0.1);
+  padding: 6px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+.status-bar .wrap::before {
+  content: "SYSTEM // ";
+  color: rgba(0, 224, 255, 0.62);
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--accent-2);
+  box-shadow: 0 0 0 3px rgba(111, 255, 193, 0.08), 0 0 14px var(--accent-2);
+}
+.ticker-bar { background: rgba(6, 13, 21, 0.88); }
+.ticker-track { padding: 7px 0; gap: 38px; }
+.ticker-item {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.ticker-item::before { content: "//"; color: rgba(0, 224, 255, 0.38); }
+.ticker-item .t-ticker { color: #dff8ff; }
+.ticker-item .t-rating.A { color: var(--accent-2); }
+.ticker-item .t-rating.Bplus { color: #a7bdeb; }
+
+.nav-shell {
+  min-height: 74px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 28px;
+}
+.brand {
+  flex-shrink: 0;
+  color: var(--text);
+  text-decoration: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+}
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  color: var(--accent);
+  background: linear-gradient(145deg, rgba(0, 224, 255, 0.12), rgba(0, 224, 255, 0.02));
+  box-shadow: inset 0 0 18px rgba(0, 224, 255, 0.08), 0 0 22px rgba(0, 224, 255, 0.07);
+  font-size: 12px;
+  letter-spacing: -0.03em;
+}
+.brand-build {
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  border-left: 1px solid var(--border);
+  padding-left: 10px;
+}
+.nav-links { gap: 6px; }
+.nav-links a {
+  position: relative;
+  color: #8ea2b5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+  padding: 10px 11px;
+  border-radius: 8px;
+  transition: color .2s ease, background .2s ease;
+}
+.nav-links a:hover { color: var(--text); background: rgba(137, 193, 225, 0.07); }
+.nav-links .cta.ghost {
+  border: 1px solid var(--border-strong);
+  color: var(--accent);
+  background: rgba(0, 224, 255, 0.055);
+  padding: 10px 14px;
+}
+
+.hero { padding: 96px 0 78px; }
+.home-hero { padding: 82px 0 70px; text-align: left; }
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(360px, .92fr);
+  gap: 72px;
+  align-items: center;
+}
+.hero-copy { position: relative; }
+.hero .eyebrow, .section-head .eyebrow {
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+.hero .eyebrow {
+  border: 1px solid rgba(0, 224, 255, 0.18);
+  background: rgba(0, 224, 255, 0.045);
+  border-radius: 999px;
+  padding: 7px 11px;
+}
+.eyebrow-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: 1px;
+  background: var(--accent-2);
+  box-shadow: 0 0 10px var(--accent-2);
+}
+.hero h1 {
+  max-width: 920px;
+  font-size: clamp(44px, 6vw, 76px);
+  line-height: .98;
+  text-wrap: balance;
+}
+.home-hero h1 { margin: 28px 0 0; max-width: 690px; }
+.hero h1 .grad {
+  background: linear-gradient(100deg, #effcff 3%, #62edff 46%, #70ffc1 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: none;
+}
+.hero p {
+  color: #93a7ba;
+  font-size: 17px;
+  line-height: 1.75;
+  max-width: 650px;
+}
+.home-hero p { margin: 24px 0 0; max-width: 610px; }
+.hero .ctas { justify-content: flex-start; margin-top: 34px; }
+.cta {
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), #5fffd0);
+  color: #021015;
+  box-shadow: 0 10px 34px rgba(0, 224, 255, 0.14);
+}
+.cta:hover { transform: translateY(-2px); }
+.cta.ghost {
+  color: #c8d8e5;
+  background: rgba(137, 193, 225, 0.045);
+  border-color: rgba(137, 193, 225, 0.2);
+  box-shadow: none;
+}
+.system-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 30px;
+}
+.system-chip {
+  color: #8da2b6;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: rgba(7, 14, 22, 0.7);
+}
+.system-chip::before { content: "✓"; color: var(--accent-2); margin-right: 6px; }
+
+.signal-terminal {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0, 224, 255, 0.22);
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(13, 25, 38, 0.95), rgba(5, 11, 18, 0.96));
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.04), 0 0 70px rgba(0,224,255,.06);
+}
+.signal-terminal::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -20%;
+  height: 28%;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(0, 224, 255, .075), transparent);
+  animation: terminal-scan 5s linear infinite;
+}
+@keyframes terminal-scan { to { transform: translateY(520px); } }
+.terminal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 17px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.018);
+  font-family: 'JetBrains Mono', monospace;
+  color: #7890a5;
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.terminal-lights { display: flex; gap: 6px; }
+.terminal-lights span { width: 6px; height: 6px; border-radius: 50%; background: #293847; }
+.terminal-lights span:nth-child(1) { background: var(--red); }
+.terminal-lights span:nth-child(2) { background: var(--amber); }
+.terminal-lights span:nth-child(3) { background: var(--accent-2); box-shadow: 0 0 10px rgba(111,255,193,.7); }
+.terminal-body { padding: 11px 20px 19px; }
+.terminal-row {
+  display: grid;
+  grid-template-columns: 76px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(137, 193, 225, 0.1);
+  font-family: 'JetBrains Mono', monospace;
+}
+.terminal-row:last-of-type { border-bottom: none; }
+.terminal-step { color: #60758a; font-size: 9px; letter-spacing: .1em; }
+.terminal-main strong { display: block; color: #dff6ff; font-size: 12px; letter-spacing: .03em; }
+.terminal-main span { display: block; color: #647a8e; font-size: 9px; margin-top: 3px; }
+.terminal-state {
+  color: var(--accent-2);
+  font-size: 8px;
+  letter-spacing: .08em;
+  border: 1px solid rgba(111, 255, 193, .2);
+  background: rgba(111, 255, 193, .055);
+  border-radius: 5px;
+  padding: 5px 7px;
+}
+.terminal-output {
+  margin-top: 10px;
+  padding: 18px;
+  border: 1px solid rgba(0, 224, 255, .18);
+  border-radius: 13px;
+  background: rgba(0, 224, 255, .045);
+}
+.terminal-output-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #648095;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.terminal-output-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 9px;
+}
+.terminal-output-value strong { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 18px; }
+.terminal-output-value span { color: #8298aa; font-size: 10px; }
+
+.trust-bar {
+  position: relative;
+  border-color: rgba(137, 193, 225, 0.12);
+  background: rgba(6, 13, 21, 0.52);
+  backdrop-filter: blur(14px);
+  padding: 0;
+}
+.trust-bar .wrap { padding-top: 30px; padding-bottom: 30px; }
+.trust-stat { min-width: 130px; }
+.trust-stat .n {
+  color: #effcff;
+  font-size: 25px;
+  letter-spacing: -.05em;
+  text-shadow: 0 0 22px rgba(0, 224, 255, .16);
+}
+.trust-stat .l { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .1em; }
+
+section { padding: 88px 0; border-color: rgba(137, 193, 225, 0.11); }
+.section-head { max-width: 650px; margin-bottom: 46px; }
+.section-head h2 { font-size: clamp(30px, 4vw, 44px); line-height: 1.08; margin-top: 14px; }
+.section-head p { color: #7f94a7; font-size: 15px; line-height: 1.7; }
+
+.trade-grid { gap: 16px; }
+.trade-card, .compare-card, .stat, .price-card, .filings-table-wrap {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(155deg, rgba(16, 29, 43, .82), rgba(6, 13, 21, .86));
+  border-color: rgba(137, 193, 225, .14);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+  backdrop-filter: blur(12px);
+}
+.trade-card::before, .compare-card::before, .stat::before, .price-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 42px;
+  height: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  opacity: .65;
+}
+.trade-card { border-radius: var(--radius); padding: 23px; }
+.trade-card:hover {
+  border-color: rgba(0, 224, 255, .32);
+  transform: translateY(-5px);
+  box-shadow: 0 22px 55px rgba(0,0,0,.28), 0 0 34px rgba(0,224,255,.055);
+}
+.trade-avatar {
+  border-radius: 10px;
+  border-color: rgba(0, 224, 255, .18);
+  background: rgba(0,224,255,.055);
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+}
+.trade-ticker { color: #e9fbff; font-size: 17px; letter-spacing: -.02em; }
+.trade-meta { color: #6f8599; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; }
+.trade-narrative { color: #a9bac8; }
+.mkt-strip { border-color: rgba(137,193,225,.12); gap: 9px; }
+.mkt-cell {
+  padding: 7px 8px;
+  border-radius: 7px;
+  background: rgba(137,193,225,.035);
+}
+.mkt-cell .l { color: #5f7487; }
+.mkt-cell .v { color: #cbe3ee; }
+.trade-badge { border: 1px solid currentColor; background: transparent !important; opacity: .92; }
+.trade-badge.Aplus { color: var(--amber); }
+.trade-badge.A { color: var(--accent-2); }
+.trade-badge.Bplus { color: #aabcf0; }
+
+.filings-table-wrap { border-radius: var(--radius); }
+table.filings { font-size: 12px; }
+table.filings thead th {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  color: #6c8295;
+  background: rgba(8, 16, 25, .94);
+  border-color: rgba(137, 193, 225, .12);
+  letter-spacing: .09em;
+}
+table.filings tbody td { padding-top: 14px; padding-bottom: 14px; border-color: rgba(137,193,225,.08); }
+table.filings tbody tr:hover { background: rgba(0,224,255,.035); }
+table.filings .tk { color: var(--accent); }
+
+.compare-card, .price-card { border-radius: var(--radius); }
+.compare-card.highlight, .price-card.rec {
+  border-color: rgba(0,224,255,.34);
+  background: linear-gradient(155deg, rgba(0,224,255,.075), rgba(6,13,21,.88));
+}
+.compare-card li, .faq-item, .mkt-strip { border-color: rgba(137,193,225,.1); }
+.stat { border-radius: 14px; }
+.stat .n { color: #eafdff; font-size: 28px; letter-spacing: -.06em; }
+.stat .l { font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .09em; }
+.price-card .rec-tag {
+  border-radius: 0 0 0 9px;
+  top: 0;
+  right: 0;
+  background: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+}
+.faq-item { padding: 23px 0; }
+.faq-item h4 { color: #dcecf5; font-size: 16px; }
+.faq-item h4::before { content: "+"; color: var(--accent); margin-right: 12px; font-family: 'JetBrains Mono', monospace; }
+.empty {
+  border-color: rgba(137,193,225,.18);
+  border-radius: var(--radius);
+  background: rgba(9,17,27,.54);
+  color: #70869a;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+.ad-slot { border-color: rgba(137,193,225,.13); background: rgba(6,13,21,.42); }
+.disclaimer-box {
+  border-radius: 13px;
+  background: rgba(255,113,130,.045);
+  border-color: rgba(255,113,130,.2);
+}
+footer { position: relative; background: rgba(2,6,10,.54); border-color: rgba(137,193,225,.11); }
+.footer-note { line-height: 1.7; }
+
+@media (max-width: 940px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 46px; }
+  .hero-copy { text-align: center; }
+  .home-hero h1, .home-hero p { margin-left: auto; margin-right: auto; }
+  .hero .ctas, .system-chips { justify-content: center; }
+  .signal-terminal { max-width: 620px; margin: 0 auto; width: 100%; }
+  .nav-shell { align-items: flex-start; flex-direction: column; gap: 4px; padding-top: 14px; padding-bottom: 11px; }
+  .nav-links { width: 100%; overflow-x: auto; justify-content: flex-start; padding: 5px 0; scrollbar-width: none; }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a { white-space: nowrap; }
+}
+@media (max-width: 640px) {
+  .wrap { padding-left: 18px; padding-right: 18px; }
+  .status-bar .wrap { white-space: nowrap; overflow-x: auto; }
+  .brand-build { display: none; }
+  .nav-links .cta.ghost { display: none; }
+  .home-hero { padding-top: 58px; }
+  .hero { padding: 68px 0 55px; }
+  .hero h1 { font-size: clamp(39px, 12vw, 56px); }
+  .hero p { font-size: 15px; }
+  .hero .ctas { flex-direction: column; }
+  .hero .cta { width: 100%; text-align: center; }
+  .system-chips { gap: 6px; }
+  .system-chip { font-size: 8px; }
+  .terminal-body { padding: 8px 14px 14px; }
+  .terminal-row { grid-template-columns: 55px minmax(0,1fr); gap: 9px; }
+  .terminal-state { display: none; }
+  .terminal-output-value { align-items: flex-start; flex-direction: column; gap: 4px; }
+  section { padding: 66px 0; }
+  .section-head { text-align: left; margin-bottom: 30px; }
+  .trade-grid { grid-template-columns: 1fr; }
+  .mkt-strip { grid-template-columns: repeat(2,1fr); }
+  .trust-bar .wrap { display: grid !important; grid-template-columns: repeat(2,1fr); gap: 24px !important; }
+  .compare-grid, .pricing-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .signal-terminal::after { animation: none; display: none; }
+}
+
+/* ------------------------------------------------------------------
+   INSTITUTIONAL RESEARCH UI
+   Quiet, data-led, and intentionally free of sci-fi dashboard motifs.
+   ------------------------------------------------------------------ */
+:root {
+  --bg: #0b0d0f;
+  --surface: #111417;
+  --surface-2: #161a1e;
+  --surface-3: #1b2025;
+  --border: #272c32;
+  --border-strong: #3a424b;
+  --text: #f2f4f5;
+  --muted: #939ba4;
+  --accent: #a8e063;
+  --accent-2: #a8e063;
+  --accent-dim: rgba(168, 224, 99, .09);
+  --violet: #9b9cf5;
+  --red: #ff7b86;
+  --amber: #edbd62;
+  --b: #91a8ca;
+  --radius: 12px;
+  --shadow: 0 24px 60px rgba(0, 0, 0, .22);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  letter-spacing: 0;
+}
+body::before, body::after, .bg-mesh { display: none; }
+.wrap { max-width: 1160px; }
+h1, h2, h3 { letter-spacing: -.035em; }
+
+nav {
+  background: rgba(11, 13, 15, .96);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.status-bar {
+  background: #0b0d0f;
+  border-color: var(--border);
+  color: #747d86;
+  font-size: 9px;
+  letter-spacing: .075em;
+}
+.status-bar .wrap::before { content: ""; }
+.status-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(168, 224, 99, .08);
+}
+.ticker-bar { background: #0e1113; border-color: var(--border); }
+.ticker-track { padding: 6px 0; }
+.ticker-item { color: #6f7881; }
+.ticker-item::before { content: ""; }
+.ticker-item .t-ticker { color: #c7ccd1; }
+
+.nav-shell {
+  min-height: 68px;
+  padding-top: 0;
+  padding-bottom: 0;
+  flex-direction: row;
+  align-items: center;
+}
+.brand {
+  gap: 9px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: -.01em;
+}
+.brand-mark {
+  width: auto;
+  height: auto;
+  padding-right: 9px;
+  border: 0;
+  border-right: 1px solid #424850;
+  border-radius: 0;
+  color: var(--accent);
+  background: none;
+  box-shadow: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+.brand-build { display: none; }
+.nav-links { gap: 2px; }
+.nav-links a {
+  color: #929aa2;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 9px 10px;
+}
+.nav-links a:hover { color: #fff; background: #171b1f; }
+.nav-links .cta.ghost {
+  color: #e8ebed;
+  border-color: #363d44;
+  background: #171b1f;
+  padding: 9px 13px;
+}
+
+.hero { padding: 78px 0 58px; }
+.home-hero { padding: 76px 0 68px; text-align: left; }
+.hero-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(390px, .95fr);
+  gap: 82px;
+  align-items: center;
+}
+.hero-copy { text-align: left; }
+.hero .eyebrow {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 9px;
+  letter-spacing: .13em;
+}
+.eyebrow-rule {
+  display: inline-block;
+  width: 22px;
+  height: 1px;
+  margin-right: 9px;
+  vertical-align: 3px;
+  background: var(--accent);
+}
+.hero h1 {
+  max-width: 800px;
+  font-size: clamp(42px, 5vw, 64px);
+  line-height: 1.03;
+  letter-spacing: -.055em;
+}
+.home-hero h1 { max-width: 650px; margin: 23px 0 0; }
+.hero h1 .grad {
+  background: none;
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
+}
+.hero p {
+  color: #a1a8af;
+  font-size: 16px;
+  line-height: 1.7;
+}
+.home-hero p { max-width: 600px; margin: 22px 0 0; }
+.hero .ctas { margin-top: 30px; gap: 18px; }
+.hero .cta {
+  padding: 12px 18px;
+  border-radius: 7px;
+  font-size: 13px;
+  box-shadow: none;
+}
+.cta {
+  background: var(--text);
+  color: #0b0d0f;
+}
+.cta:hover { transform: none; background: #fff; }
+.cta.ghost {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  border: 0;
+  color: #b2bac1;
+  background: transparent;
+}
+.cta.ghost:hover { color: #fff; background: transparent; }
+.hero-note {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  color: #656e77;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+.hero-note span + span::before { content: "·"; margin-right: 15px; color: #41474d; }
+
+.signal-monitor {
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: #101316;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.monitor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 21px;
+  border-bottom: 1px solid var(--border);
+}
+.monitor-kicker {
+  display: block;
+  color: #6f7881;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.monitor-head strong { display: block; margin-top: 4px; font-size: 15px; letter-spacing: -.02em; }
+.monitor-live {
+  color: #8e986f;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  white-space: nowrap;
+}
+.monitor-live::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.monitor-row {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto auto;
+  align-items: center;
+  gap: 18px;
+  padding: 17px 21px;
+  border-bottom: 1px solid #22272c;
+}
+.monitor-company strong, .monitor-price strong {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+}
+.monitor-company span, .monitor-price span {
+  display: block;
+  margin-top: 3px;
+  color: #737c85;
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.monitor-price { text-align: right; }
+.monitor-rating {
+  min-width: 33px;
+  padding: 6px 7px;
+  border: 1px solid #394047;
+  border-radius: 6px;
+  color: #cfd4d8;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  text-align: center;
+}
+.monitor-rating.Aplus { border-color: rgba(237,189,98,.35); color: var(--amber); }
+.monitor-rating.A { border-color: rgba(168,224,99,.34); color: var(--accent); }
+.monitor-rating.Bplus, .monitor-rating.B { color: #9eb1cd; }
+.monitor-empty { padding: 34px 21px; color: #7a838b; font-size: 13px; line-height: 1.6; }
+.monitor-foot {
+  padding: 15px 21px 17px;
+  background: #0e1113;
+}
+.monitor-foot span {
+  display: block;
+  color: #606970;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.monitor-foot strong { display: block; margin-top: 5px; color: #9199a1; font-size: 10.5px; font-weight: 500; }
+
+.trust-bar { background: #0e1113; backdrop-filter: none; }
+.trust-bar .wrap { justify-content: stretch !important; gap: 0 !important; }
+.trust-stat {
+  flex: 1;
+  min-width: 140px;
+  padding: 0 26px;
+  text-align: left;
+  border-left: 1px solid var(--border);
+}
+.trust-stat:first-child { border-left: 0; padding-left: 0; }
+.trust-stat .n { color: #e7eaec; font-size: 23px; text-shadow: none; }
+.trust-stat .l { color: #68717a; }
+
+section { padding: 78px 0; border-color: var(--border); }
+.section-head { max-width: 680px; margin: 0 0 36px; text-align: left; }
+.section-head .eyebrow { color: #77818a; font-size: 9px; }
+.section-head h2 { font-size: clamp(28px, 3.5vw, 39px); }
+.section-head p { color: #8f979f; max-width: 610px; }
+
+.trade-card, .compare-card, .stat, .price-card, .filings-table-wrap {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.trade-card::before, .compare-card::before, .stat::before, .price-card::before { display: none; }
+.trade-card { border-radius: 10px; }
+.trade-card:hover { transform: translateY(-2px); border-color: #3a424a; box-shadow: 0 14px 32px rgba(0,0,0,.16); }
+.trade-avatar { color: #b9c0c6; background: #1a1f23; border-color: #30363c; }
+.trade-ticker { color: #f1f3f4; }
+.trade-meta { color: #747d85; }
+.trade-narrative { color: #aeb5bb; }
+.mkt-cell { background: #15191d; }
+.mkt-cell .v { color: #cbd0d4; }
+.trade-badge { border-radius: 5px; }
+
+.filings-table-wrap { border-radius: 10px; }
+table.filings thead th { background: #0e1113; color: #747d85; }
+table.filings tbody tr:hover { background: #15191d; }
+table.filings .tk { color: #e9edef; }
+
+.compare-card, .price-card { border-radius: 10px; }
+.compare-card.highlight, .price-card.rec {
+  background: #121618;
+  border-color: #41494f;
+}
+.stat { border-radius: 9px; }
+.stat .n { color: #f0f2f3; }
+.faq-item h4::before { color: #6e777f; }
+.empty { background: #0f1214; border-color: #30363c; color: #737c84; }
+.ad-slot { background: #0e1113; border-color: #2a3035; }
+footer { background: #090b0d; }
+
+.hero:not(.home-hero) { text-align: left; padding: 72px 0 54px; }
+.hero:not(.home-hero) h1 { margin-left: 0; max-width: 800px; }
+.hero:not(.home-hero) p { margin-left: 0; max-width: 650px; }
+
+@media (max-width: 940px) {
+  .nav-shell { flex-direction: row; align-items: center; }
+  .nav-links { width: auto; }
+  .nav-links a:nth-child(4), .nav-links a:nth-child(5), .nav-links a:nth-child(6), .nav-links .cta.ghost { display: none; }
+  .hero-layout { grid-template-columns: 1fr; gap: 44px; }
+  .hero-copy { text-align: left; }
+  .home-hero h1, .home-hero p { margin-left: 0; margin-right: 0; }
+  .hero .ctas { justify-content: flex-start; }
+}
+@media (max-width: 640px) {
+  .ticker-bar { display: none; }
+  .nav-shell { min-height: 62px; }
+  .nav-links a:nth-child(3) { display: none; }
+  .nav-links a { padding-left: 7px; padding-right: 7px; }
+  .home-hero { padding-top: 56px; }
+  .hero h1 { font-size: clamp(38px, 11vw, 49px); }
+  .hero .ctas { flex-direction: row; align-items: center; }
+  .hero .cta { width: auto; }
+  .hero-note { gap: 9px; line-height: 1.7; }
+  .hero-note span + span::before { margin-right: 9px; }
+  .monitor-row { grid-template-columns: minmax(0,1fr) auto; }
+  .monitor-price { display: none; }
+  .trust-bar .wrap { grid-template-columns: repeat(2,1fr); }
+  .trust-stat { padding: 10px 14px; border-left: 0; }
+  .trust-stat:first-child { padding-left: 14px; }
+}
+
+/* Apple-inspired ambient glass layer: light behind the product, not over it. */
+body {
+  background:
+    linear-gradient(180deg, rgba(8, 12, 17, .84), rgba(7, 10, 13, .97)),
+    #080b0e;
+}
+.bg-mesh {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.bg-mesh span {
+  display: block;
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(105px);
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+.bg-mesh .b1 {
+  width: 680px;
+  height: 680px;
+  top: -300px;
+  left: -240px;
+  background: #087cff;
+  opacity: .23;
+  animation: glass-blue-drift 16s ease-in-out infinite;
+}
+.bg-mesh .b2 {
+  width: 560px;
+  height: 560px;
+  top: 15%;
+  right: -250px;
+  background: #00ec9f;
+  opacity: .17;
+  animation: glass-green-drift 19s ease-in-out infinite;
+}
+.bg-mesh .b3 {
+  width: 580px;
+  height: 580px;
+  bottom: -320px;
+  left: 22%;
+  background: #00b8ff;
+  opacity: .12;
+  animation: glass-lower-drift 23s ease-in-out infinite;
+}
+@keyframes glass-blue-drift {
+  0%, 100% { transform: translate3d(-35px, -20px, 0) scale(.96); }
+  25% { transform: translate3d(145px, 70px, 0) scale(1.08); }
+  50% { transform: translate3d(235px, 185px, 0) scale(1.16); }
+  75% { transform: translate3d(55px, 235px, 0) scale(1.03); }
+}
+@keyframes glass-green-drift {
+  0%, 100% { transform: translate3d(45px, -40px, 0) scale(1.02); }
+  25% { transform: translate3d(-120px, 55px, 0) scale(1.12); }
+  50% { transform: translate3d(-235px, 175px, 0) scale(.98); }
+  75% { transform: translate3d(-80px, 290px, 0) scale(1.14); }
+}
+@keyframes glass-lower-drift {
+  0%, 100% { transform: translate3d(-90px, 80px, 0) scale(1); }
+  25% { transform: translate3d(80px, -60px, 0) scale(1.1); }
+  50% { transform: translate3d(260px, -150px, 0) scale(.94); }
+  75% { transform: translate3d(115px, 30px, 0) scale(1.08); }
+}
+
+nav {
+  background: rgba(9, 12, 16, .7);
+  border-color: rgba(255, 255, 255, .075);
+  backdrop-filter: blur(26px) saturate(145%);
+  -webkit-backdrop-filter: blur(26px) saturate(145%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .025);
+}
+.status-bar, .ticker-bar {
+  background: rgba(7, 10, 13, .62);
+  border-color: rgba(255, 255, 255, .065);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+}
+
+.signal-monitor,
+.trade-card,
+.compare-card,
+.stat,
+.price-card,
+.filings-table-wrap,
+.empty {
+  background: linear-gradient(145deg, rgba(27, 34, 41, .7), rgba(12, 16, 21, .72));
+  border-color: rgba(255, 255, 255, .1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .075),
+    inset 0 -1px 0 rgba(255, 255, 255, .018),
+    0 24px 70px rgba(0, 0, 0, .2);
+  backdrop-filter: blur(24px) saturate(135%);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+}
+.trade-card:hover {
+  border-color: rgba(119, 217, 255, .2);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.09),
+    0 22px 55px rgba(0,0,0,.24),
+    0 0 40px rgba(0, 139, 255, .035);
+}
+.monitor-head, .monitor-row { border-color: rgba(255, 255, 255, .075); }
+.monitor-foot, table.filings thead th, .mkt-cell {
+  background: rgba(8, 12, 16, .46);
+}
+.trust-bar {
+  background: rgba(11, 15, 19, .56);
+  border-color: rgba(255, 255, 255, .075);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+}
+section, footer { border-color: rgba(255, 255, 255, .075); }
+footer {
+  background: rgba(6, 9, 12, .65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.nav-links .cta.ghost {
+  background: rgba(255, 255, 255, .055);
+  border-color: rgba(255, 255, 255, .115);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055);
+}
+
+.live-watch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: #77818a;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.live-watch-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(168, 224, 99, .55);
+}
+.live-watch.checking .live-watch-dot { animation: live-watch-pulse 1s ease-in-out infinite; }
+.live-watch.reconnecting { color: var(--amber); }
+.live-watch.reconnecting .live-watch-dot { background: var(--amber); box-shadow: none; }
+@keyframes live-watch-pulse { 50% { opacity: .28; transform: scale(.75); } }
+
+.signal-toast-region {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 80;
+  width: min(390px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.signal-toast {
+  opacity: 0;
+  transform: translateY(16px) scale(.985);
+  pointer-events: auto;
+  overflow: hidden;
+  border: 1px solid rgba(142, 255, 209, .22);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(24, 34, 40, .9), rgba(9, 14, 18, .92));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 24px 80px rgba(0,0,0,.42), 0 0 54px rgba(0,236,159,.08);
+  backdrop-filter: blur(28px) saturate(145%);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+  transition: opacity .28s ease, transform .28s ease;
+}
+.signal-toast.show { opacity: 1; transform: translateY(0) scale(1); }
+.signal-toast-accent { height: 2px; background: linear-gradient(90deg, #087cff, #00ec9f); }
+.signal-toast-body { padding: 18px 19px 17px; }
+.signal-toast-label {
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.signal-toast h3 { margin-top: 7px; color: #f4f6f7; font-size: 20px; letter-spacing: -.035em; }
+.signal-toast p { margin: 7px 0 0; color: #a1a9b0; font-size: 12px; line-height: 1.55; }
+.signal-toast-actions { display: flex; align-items: center; gap: 14px; margin-top: 15px; }
+.signal-toast-link {
+  color: #0b0d0f;
+  background: #f2f4f5;
+  border-radius: 6px;
+  padding: 8px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.signal-toast-close {
+  border: 0;
+  padding: 7px 0;
+  color: #808991;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.signal-toast-close:hover { color: #fff; }
+
+.market-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(310px, .55fr);
+  gap: 18px;
+  align-items: stretch;
+}
+.market-chart-panel,
+.market-snapshot-card {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(25, 33, 40, .72), rgba(10, 15, 19, .75));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.075), 0 24px 70px rgba(0,0,0,.2);
+  backdrop-filter: blur(24px) saturate(135%);
+  -webkit-backdrop-filter: blur(24px) saturate(135%);
+}
+.market-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 66px;
+  padding: 17px 19px;
+  border-bottom: 1px solid rgba(255,255,255,.075);
+}
+.market-panel-head span,
+.market-data-label {
+  display: block;
+  color: #707a83;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.market-panel-head strong { display: block; margin-top: 4px; font-size: 14px; }
+.market-delay-note { max-width: 240px; color: #737c85; font-size: 10px; line-height: 1.45; text-align: right; }
+.tradingview-widget-container { width: 100%; height: 510px; }
+.tradingview-widget-container__widget { width: 100%; height: calc(100% - 26px); }
+.tradingview-widget-copyright { padding: 4px 12px 7px; color: #68717a; font-size: 9px; text-align: right; }
+.tradingview-widget-copyright a { color: #8d969e; text-decoration: none; }
+
+.market-snapshot-list { display: grid; gap: 12px; }
+.market-snapshot-card { padding: 19px; }
+.market-snapshot-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.market-snapshot-symbol strong {
+  display: block;
+  color: #f1f4f5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 17px;
+}
+.market-snapshot-symbol span {
+  display: block;
+  max-width: 220px;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #7c858d;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.market-snapshot-price { margin-top: 18px; }
+.market-snapshot-price strong { display: inline-block; margin-top: 4px; color: #edf1f3; font-size: 26px; letter-spacing: -.045em; }
+.market-change { margin-left: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+.market-change.pos { color: var(--accent); }
+.market-change.neg { color: var(--red); }
+.market-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  margin-top: 15px;
+}
+.market-metric { padding: 9px 8px; border-radius: 7px; background: rgba(7, 11, 14, .38); }
+.market-metric span { display: block; color: #66717a; font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: .07em; text-transform: uppercase; }
+.market-metric strong { display: block; margin-top: 4px; color: #c5cbd0; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; }
+.market-range { margin-top: 15px; }
+.market-range-head, .market-range-labels { display: flex; justify-content: space-between; align-items: center; }
+.market-range-head { color: #717b84; font-size: 9px; }
+.market-range-head strong { color: #abb3ba; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 500; }
+.market-range-track { position: relative; height: 4px; margin-top: 9px; border-radius: 99px; background: rgba(255,255,255,.09); }
+.market-range-fill { position: absolute; inset: 0 auto 0 0; width: var(--range-position); border-radius: inherit; background: linear-gradient(90deg, #087cff, #00ec9f); }
+.market-range-pin { position: absolute; top: 50%; left: var(--range-position); width: 8px; height: 8px; border: 2px solid #dfffee; border-radius: 50%; background: #101519; transform: translate(-50%, -50%); box-shadow: 0 0 10px rgba(0,236,159,.38); }
+.market-range-labels { margin-top: 7px; color: #646e77; font-family: 'JetBrains Mono', monospace; font-size: 8px; }
+.market-source-note { margin: 14px 0 0; color: #69737c; font-size: 10px; line-height: 1.55; }
+
+.signal-brief-grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
+.signal-brief-card { overflow: hidden; padding: 0; }
+.signal-brief-card:hover { transform: translateY(-2px); }
+.signal-brief-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 22px 23px 18px;
+  border-bottom: 1px solid rgba(255,255,255,.075);
+}
+.signal-brief-symbol { display: flex; align-items: center; gap: 13px; }
+.signal-brief-symbol .trade-avatar { flex: 0 0 auto; }
+.signal-brief-symbol .trade-ticker { margin-top: 0; font-size: 19px; }
+.signal-company { margin-top: 4px; color: #747f87; font-size: 11px; }
+.signal-brief-badges { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.signal-brief-badges .trade-badge { margin-top: 0; }
+.conviction-pill {
+  padding: 4px 8px;
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 5px;
+  color: #929ba3;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.signal-framework {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid rgba(255,255,255,.075);
+  background: rgba(7, 11, 14, .24);
+}
+.signal-framework-cell { min-width: 0; padding: 15px 20px; border-right: 1px solid rgba(255,255,255,.065); }
+.signal-framework-cell:last-child { border-right: 0; }
+.signal-framework-cell span { display: block; color: #68727a; font-family: 'JetBrains Mono', monospace; font-size: 7.5px; letter-spacing: .08em; text-transform: uppercase; }
+.signal-framework-cell strong { display: block; margin-top: 5px; color: #e6e9eb; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+.signal-framework-cell small { display: block; margin-top: 3px; color: #68727a; font-size: 8.5px; }
+.signal-brief-body { padding: 22px 23px 23px; }
+.signal-insider-line { margin-bottom: 18px; color: #7c858d; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; }
+.signal-thesis-block + .signal-thesis-block { margin-top: 13px; }
+.signal-thesis-label { display: flex; align-items: center; gap: 8px; color: #7ce1b4; font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: .1em; text-transform: uppercase; }
+.signal-thesis-label::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; }
+.signal-thesis-text { margin: 8px 0 0; color: #bdc4ca; font-size: 13px; line-height: 1.72; }
+.signal-watch {
+  padding: 14px 15px;
+  border: 1px solid rgba(255, 153, 102, .15);
+  border-radius: 8px;
+  background: rgba(82, 35, 23, .14);
+}
+.signal-watch .signal-thesis-label { color: #e3a076; }
+.signal-watch .signal-thesis-text { color: #b9aaa2; font-size: 12px; }
+.signal-brief-card .mkt-strip { margin-top: 19px; }
+.signal-sizing-note { margin: 15px 0 0; color: #68727a; font-size: 10px; line-height: 1.55; }
+.signal-sizing-note strong { color: #929ba3; font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-mesh span { animation: none !important; }
+  .live-watch.checking .live-watch-dot { animation: none; }
+  .signal-toast { transition: none; }
+}
+@media (max-width: 640px) {
+  .live-watch { display: none; }
+  .signal-toast-region { right: 16px; bottom: 16px; }
+  .market-metrics { grid-template-columns: repeat(2, 1fr); }
+  .tradingview-widget-container { height: 440px; }
+  .signal-brief-head { padding: 19px 17px 16px; }
+  .signal-brief-body { padding: 19px 17px 20px; }
+  .signal-framework { grid-template-columns: repeat(2, 1fr); }
+  .signal-framework-cell:nth-child(2) { border-right: 0; }
+  .signal-framework-cell:nth-child(-n+2) { border-bottom: 1px solid rgba(255,255,255,.065); }
+}
+@media (max-width: 900px) {
+  .market-dashboard { grid-template-columns: 1fr; }
+  .market-snapshot-list { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+@media (max-width: 620px) {
+  .market-snapshot-list { grid-template-columns: 1fr; }
+  .market-delay-note { display: none; }
+}
 """
 
+@app.context_processor
+def inject_shared_data():
+    """Makes ticker_items and scan_status available in EVERY template
+    automatically, since the ticker/status bar appears in NAV on every
+    page — avoids having to remember to pass these in each route."""
+    return {
+        "ticker_items": load_ticker_items(),
+        "scan_status": load_scan_status(),
+    }
+
+
 NAV = """
-<nav><div class="wrap">
-  <div class="brand"><span class="dot"></span>AI INSIDER</div>
-  <div class="nav-links">
-    <a href="/">Signals</a>
-    <a href="/track-record">Track Record</a>
-    <a href="/leaderboard">Leaderboard</a>
-    <a href="/how-it-works">How It Works</a>
-    <a href="/#pricing">Pricing</a>
-    <a class="cta ghost" href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
+<div class="bg-mesh"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
+<nav aria-label="Primary navigation">
+  <div class="status-bar"><div class="wrap">
+    {% if scan_status.available %}
+      <span class="status-dot {{ '' if scan_status.fresh else 'stale' }}"></span>
+      Last scan: {{ scan_status.last_scan }} UTC ({{ scan_status.hours_ago }}h ago) &middot; periodic scan, not real-time
+    {% else %}
+      <span class="status-dot stale"></span> Scanner status not available yet
+    {% endif %}
+    <span class="live-watch" data-signal-monitor-status><span class="live-watch-dot"></span><span data-signal-monitor-copy>Auto-check every 30s</span></span>
+  </div></div>
+  {% if ticker_items %}
+  <div class="ticker-bar"><div class="ticker-track">
+    {% for item in ticker_items + ticker_items %}
+    <span class="ticker-item">
+      <span class="t-ticker">${{ item.ticker }}</span>
+      <span class="t-rating {{ item.rating|replace('+','plus') }}">{{ item.rating }}</span>
+      <span>{{ item.signal_date }}</span>
+    </span>
+    {% endfor %}
+  </div></div>
+  {% endif %}
+  <div class="wrap nav-shell">
+    <a class="brand" href="/" aria-label="AI Insider home">
+      <span class="brand-mark">AI</span>
+      <span>INSIDER</span>
+      <span class="brand-build">INTEL // 24</span>
+    </a>
+    <div class="nav-links">
+      <a href="/">Signals</a>
+      <a href="/#market-data">Market</a>
+      <a href="/track-record">Track Record</a>
+      <a href="/leaderboard">Leaderboard</a>
+      <a href="/how-it-works">How It Works</a>
+      <a href="/#pricing">Pricing</a>
+      <a class="cta ghost" href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
+    </div>
   </div>
-</div></nav>
+</nav>
+<div id="signal-toast-region" class="signal-toast-region" aria-live="polite" aria-atomic="true"></div>
 """
 
 FOOTER = """
@@ -330,7 +1857,155 @@ FOOTER = """
   <p class="footer-note">AI INSIDER tracks publicly available SEC Form 4 filings. This is not insider trading &mdash; it's public information. Nothing on this site is investment advice. All investing involves risk. Past performance, live or backtested, does not guarantee future results.</p>
   <p style="color:var(--muted);font-size:12px;margin-top:16px;">&copy; {{ year }} AI INSIDER</p>
 </div></footer>
+<script>
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  // stagger cards within the same grid so they reveal one after another
+  document.querySelectorAll('.trade-grid').forEach(grid => {
+    Array.from(grid.children).forEach((card, i) => {
+      card.style.transitionDelay = (i * 60) + 'ms';
+    });
+  });
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in-view'); io.unobserve(e.target); } });
+  }, {threshold: 0.15});
+  document.querySelectorAll('.fade-in').forEach(el => io.observe(el));
+} else {
+  document.querySelectorAll('.fade-in').forEach(el => el.classList.add('in-view'));
+}
+
+// Public-safe on-site alerting. This polls the website's own API and never
+// requests browser notification permission or exposes private portfolio data.
+(() => {
+  const endpoint = '/api/signals';
+  const storageKey = 'aiinsider_seen_public_signals_v1';
+  const region = document.getElementById('signal-toast-region');
+  const statusNodes = Array.from(document.querySelectorAll('[data-signal-monitor-status]'));
+  const copyNodes = Array.from(document.querySelectorAll('[data-signal-monitor-copy]'));
+  let initialized = false;
+  let seen = new Set();
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    if (Array.isArray(saved)) seen = new Set(saved);
+  } catch (_) {
+    seen = new Set();
+  }
+
+  const setMonitorState = (state, copy) => {
+    statusNodes.forEach(node => {
+      node.classList.remove('checking', 'reconnecting');
+      if (state) node.classList.add(state);
+    });
+    copyNodes.forEach(node => { node.textContent = copy; });
+  };
+
+  const saveSeen = () => {
+    const ids = Array.from(seen).slice(-200);
+    seen = new Set(ids);
+    try { localStorage.setItem(storageKey, JSON.stringify(ids)); } catch (_) {}
+  };
+
+  const dismissToast = toast => {
+    toast.classList.remove('show');
+    window.setTimeout(() => toast.remove(), 280);
+  };
+
+  const showToast = (signals) => {
+    if (!region || !signals.length) return;
+    region.replaceChildren();
+    const signal = signals[0];
+    const toast = document.createElement('div');
+    toast.className = 'signal-toast';
+    toast.setAttribute('role', 'status');
+
+    const accent = document.createElement('div');
+    accent.className = 'signal-toast-accent';
+    const body = document.createElement('div');
+    body.className = 'signal-toast-body';
+    const label = document.createElement('div');
+    label.className = 'signal-toast-label';
+    label.textContent = signals.length > 1 ? `${signals.length} new qualified signals` : 'New qualified signal';
+    const title = document.createElement('h3');
+    title.textContent = `${signal.rating || 'Rated'} · $${signal.ticker || '—'}`;
+    const detail = document.createElement('p');
+    const buyer = signal.insider_name || 'Open-market insider purchase';
+    const price = signal.entry_price ? ` near $${signal.entry_price}` : '';
+    detail.textContent = `${buyer}${price}. Published research only — not a recommendation.`;
+    const actions = document.createElement('div');
+    actions.className = 'signal-toast-actions';
+    const link = document.createElement('a');
+    link.className = 'signal-toast-link';
+    link.href = '/#signals';
+    link.textContent = signals.length > 1 ? 'View signals' : 'View signal';
+    const close = document.createElement('button');
+    close.className = 'signal-toast-close';
+    close.type = 'button';
+    close.textContent = 'Dismiss';
+    close.addEventListener('click', () => dismissToast(toast));
+
+    actions.append(link, close);
+    body.append(label, title, detail, actions);
+    toast.append(accent, body);
+    region.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    window.setTimeout(() => {
+      if (toast.isConnected) dismissToast(toast);
+    }, 14000);
+  };
+
+  const pollSignals = async () => {
+    if (document.hidden) return;
+    setMonitorState('checking', 'Checking public feed');
+    try {
+      const response = await fetch(endpoint, { cache: 'no-store', headers: { 'Accept': 'application/json' } });
+      if (!response.ok) throw new Error('signal feed unavailable');
+      const payload = await response.json();
+      const signals = Array.isArray(payload.signals) ? payload.signals : [];
+      const unseen = signals.filter(signal => signal.signal_id && !seen.has(signal.signal_id));
+
+      if (!initialized && seen.size === 0) {
+        signals.forEach(signal => { if (signal.signal_id) seen.add(signal.signal_id); });
+      } else if (unseen.length) {
+        showToast(unseen);
+        unseen.forEach(signal => seen.add(signal.signal_id));
+      }
+      signals.forEach(signal => { if (signal.signal_id) seen.add(signal.signal_id); });
+      saveSeen();
+      initialized = true;
+      setMonitorState('', 'Auto-check every 30s');
+    } catch (_) {
+      setMonitorState('reconnecting', 'Feed reconnecting');
+    }
+  };
+
+  pollSignals();
+  window.setInterval(pollSignals, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) pollSignals();
+  });
+})();
+</script>
 """
+
+
+def format_mcap(val):
+    """1234567890 -> '$1.2B', 45000000 -> '$45.0M'. Honest '—' for missing data."""
+    if val is None or (isinstance(val, float) and np.isnan(val)) or val == "":
+        return "—"
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return "—"
+    if v >= 1e9:
+        return f"${v/1e9:.1f}B"
+    if v >= 1e6:
+        return f"${v/1e6:.0f}M"
+    if v > 0:
+        return f"${v:,.0f}"
+    return "—"
+
+
+app.jinja_env.filters["mcap"] = format_mcap
 
 
 def ad_slot(label="Advertisement"):
@@ -339,43 +2014,245 @@ def ad_slot(label="Advertisement"):
     return f'<div class="ad-slot">{label} &middot; connect AdSense once live on a real domain</div>'
 
 
+PUBLIC_SIGNAL_API_FIELDS = (
+    "ticker", "company", "rating", "conviction", "hold_mode", "signal_date",
+    "trade_date", "entry_price", "take_profit", "target_pct", "max_hold",
+    "stop_loss", "reason", "red_flags",
+    "insider_name", "insider_title", "total_amount", "market_cap",
+    "rsi14", "low_52w", "high_52w", "range_position_pct",
+    "ret_20d_pct", "avg_volume_20d",
+)
+
+
+def _public_json_value(value):
+    """Convert dataframe scalar values into strict JSON-safe values."""
+    if value is None:
+        return None
+    if isinstance(value, np.generic):
+        value = value.item()
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    if isinstance(value, (datetime, pd.Timestamp)):
+        return value.isoformat()
+    return value
+
+
+def build_public_signal_api_payload():
+    """Public allowlist only; never expose account or position-sizing data."""
+    payload = []
+    for signal in load_public_signals():
+        safe_signal = {
+            field: _public_json_value(signal.get(field))
+            for field in PUBLIC_SIGNAL_API_FIELDS
+        }
+        identity = "|".join(str(safe_signal.get(field) or "") for field in (
+            "ticker", "rating", "signal_date", "entry_price",
+            "insider_name", "total_amount",
+        ))
+        safe_signal["signal_id"] = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:20]
+        payload.append(safe_signal)
+    return payload
+
+
+@app.route("/api/signals")
+def api_signals():
+    response = jsonify({
+        "signals": build_public_signal_api_payload(),
+        "scan_status": load_scan_status(),
+        "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "poll_after_seconds": 30,
+    })
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
+
+
 # ── home page ────────────────────────────────────────────────────
 
 HOME_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
 <title>AI INSIDER &mdash; Scored insider buying from SEC filings</title>
-<meta name="description" content="Every open-market insider purchase, scored against a 5-year backtest. Free, public, updated daily from SEC EDGAR.">
+<meta name="description" content="Every open-market insider purchase, scored against two decades of backtested history. Free, public, updated daily from SEC EDGAR.">
 <style>""" + BASE_CSS + """</style>
 </head><body>
 """ + NAV + """
 
-<div class="hero"><div class="wrap">
-  <span class="eyebrow">Built on SEC Form 4 filings</span>
-  <h1>Insiders buy their own stock<br>for one reason. <span class="grad">We score which purchases mean it.</span></h1>
-  <p>Every open-market insider purchase, filtered through the same rules we backtested across five years of filings &mdash; ownership increase, buyer seniority, price setup. Free to read. Nothing here is a recommendation.</p>
-  <div class="ctas">
-    <a class="cta" href="#signals">See today's signals</a>
-    <a class="cta ghost" href="/track-record">View the track record</a>
+<div class="hero home-hero"><div class="wrap">
+  <div class="hero-layout">
+    <div class="hero-copy">
+      <span class="eyebrow"><span class="eyebrow-rule"></span>Independent research on public SEC filings</span>
+      <h1>Insider buying, filtered for what matters.</h1>
+      <p>AI Insider screens open-market purchases by executives and directors, then publishes the setups that clear a rules-based process tested across more than two decades of Form 4 history.</p>
+      <div class="ctas">
+        <a class="cta" href="#signals">View latest signals</a>
+        <a class="cta ghost" href="/how-it-works">Read the methodology &rarr;</a>
+      </div>
+      <div class="hero-note" aria-label="Research principles">
+        <span>Open-market buys only</span>
+        <span>Periodic SEC scan</span>
+        <span>Research, not advice</span>
+      </div>
+    </div>
+    <aside class="signal-monitor" aria-label="Latest qualified signals">
+      <div class="monitor-head">
+        <div><span class="monitor-kicker">Latest qualified signals</span><strong>Signal feed</strong></div>
+        <span class="monitor-live">{{ 'Updated' if scan_status.available else 'Awaiting scan' }}</span>
+      </div>
+      {% if signals %}
+        {% for s in signals[:3] %}
+        <div class="monitor-row">
+          <div class="monitor-company"><strong>${{ s.ticker }}</strong><span>{{ s.insider_name or 'Open-market purchase' }}</span></div>
+          <div class="monitor-price"><strong>${{ s.entry_price }}</strong><span>signal price</span></div>
+          <span class="monitor-rating {{ s.rating|replace('+','plus') }}">{{ s.rating }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="monitor-empty">No new filing cleared the signal threshold in the latest scan. That is a normal outcome, not missing data.</div>
+      {% endif %}
+      <div class="monitor-foot"><span>Screening factors</span><strong>Buyer seniority &middot; ownership change &middot; purchase size &middot; price setup</strong></div>
+    </aside>
   </div>
 </div></div>
 
+{% if trust_stats %}
+<div class="trust-bar"><div class="wrap" style="display:flex;justify-content:center;gap:48px;flex-wrap:wrap;">
+  <div class="trust-stat"><div class="n">{{ trust_stats.total_filings }}</div><div class="l">Filings Logged</div></div>
+  <div class="trust-stat"><div class="n">{{ trust_stats.unique_tickers }}</div><div class="l">Tickers Tracked</div></div>
+  <div class="trust-stat"><div class="n">{{ trust_stats.unique_insiders }}</div><div class="l">Insiders Followed</div></div>
+  <div class="trust-stat"><div class="n">{{ trust_stats.days_tracked }}</div><div class="l">Days Tracked</div></div>
+</div></div>
+{% endif %}
+
+<section id="filings"><div class="wrap">
+  <div class="section-head">
+    <span class="eyebrow">01 / Signal ledger</span>
+    <h2>Latest insider filings</h2>
+    <p>A dense, timestamped view of every logged signal. Public SEC Form 4 data, most recent first.</p>
+  </div>
+  {% if filings %}
+  <div class="filings-table-wrap">
+    <table class="filings">
+      <thead><tr>
+        <th>Ticker</th><th>Insider</th><th>Filed</th><th>Rating</th><th>Price</th><th>Mkt Cap</th><th class="amt">Amount</th>
+      </tr></thead>
+      <tbody>
+        {% for f in filings %}
+        <tr>
+          <td class="tk">${{ f.ticker }}</td>
+          <td>{{ f.insider_name or '—' }}{% if f.insider_title %}<div class="role">{{ f.insider_title }}</div>{% endif %}</td>
+          <td>{{ f.signal_date }}</td>
+          <td><span class="trade-badge {{ f.rating|replace('+','plus') }}">{{ f.rating }}</span></td>
+          <td>${{ f.entry_price }}</td>
+          <td>{{ f.market_cap|mcap }}</td>
+          <td class="amt">{{ '${:,.0f}'.format(f.total_amount) if f.total_amount else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No filings logged yet — this table fills in as daily scans run.</div>
+  {% endif %}
+</div></section>
+
+<section id="market-data"><div class="wrap">
+  <div class="section-head">
+    <span class="eyebrow">02 / Market context</span>
+    <h2>Price action around every signal</h2>
+    <p>Explore the chart, then compare it with the market conditions captured by the bot during its latest scan.</p>
+  </div>
+  <div class="market-dashboard">
+    <div class="market-chart-panel">
+      <div class="market-panel-head">
+        <div><span>Interactive chart</span><strong>Daily price and volume</strong></div>
+        <div class="market-delay-note">TradingView exchange data may be delayed. Display only, not for execution.</div>
+      </div>
+      <div class="tradingview-widget-container">
+        <div class="tradingview-widget-container__widget"></div>
+        <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/markets/stocks-usa/" rel="noopener nofollow" target="_blank">US market data</a> by TradingView</div>
+        <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+        {
+          "allow_symbol_change": true,
+          "calendar": false,
+          "details": false,
+          "hide_side_toolbar": true,
+          "hide_top_toolbar": false,
+          "hide_legend": false,
+          "hide_volume": false,
+          "hotlist": false,
+          "interval": "D",
+          "locale": "en",
+          "save_image": false,
+          "style": "1",
+          "symbol": "{{ signals[0].ticker if signals else 'AMEX:SPY' }}",
+          "theme": "dark",
+          "timezone": "Etc/UTC",
+          "backgroundColor": "rgba(8, 12, 16, 0)",
+          "gridColor": "rgba(255, 255, 255, 0.05)",
+          "withdateranges": true,
+          "autosize": true
+        }
+        </script>
+      </div>
+    </div>
+    <div class="market-snapshot-list">
+      {% if signals %}
+        {% for s in signals[:4] %}
+        <article class="market-snapshot-card">
+          <div class="market-snapshot-head">
+            <div class="market-snapshot-symbol"><strong>${{ s.ticker }}</strong><span>{{ s.company or 'Company name unavailable' }}</span></div>
+            <span class="trade-badge {{ s.rating|replace('+','plus') }}">{{ s.rating }}</span>
+          </div>
+          <div class="market-snapshot-price">
+            <span class="market-data-label">Price at scan</span>
+            <strong>${{ s.entry_price }}</strong>
+            {% if s.ret_20d_pct is not none %}<span class="market-change {{ 'pos' if s.ret_20d_pct >= 0 else 'neg' }}">{{ '%+.1f'|format(s.ret_20d_pct) }}% / 20D</span>{% endif %}
+          </div>
+          <div class="market-metrics">
+            <div class="market-metric"><span>Market cap</span><strong>{{ s.market_cap|mcap }}</strong></div>
+            <div class="market-metric"><span>RSI 14</span><strong>{{ '%.1f'|format(s.rsi14) if s.rsi14 is not none else '—' }}</strong></div>
+            <div class="market-metric"><span>Avg volume</span><strong>{{ '{:,.0f}'.format(s.avg_volume_20d) if s.avg_volume_20d is not none else '—' }}</strong></div>
+          </div>
+          {% if s.range_position_pct is not none %}
+          <div class="market-range" style="--range-position: {{ s.range_position_pct }}%;">
+            <div class="market-range-head"><span>52-week range</span><strong>{{ '%.0f'|format(s.range_position_pct) }}% from low</strong></div>
+            <div class="market-range-track"><span class="market-range-fill"></span><span class="market-range-pin"></span></div>
+            <div class="market-range-labels"><span>${{ '%.2f'|format(s.low_52w) }}</span><span>${{ '%.2f'|format(s.high_52w) }}</span></div>
+          </div>
+          {% endif %}
+          <p class="market-source-note">Snapshot from the latest bot scan, not a streaming quote.</p>
+        </article>
+        {% endfor %}
+      {% else %}
+        <div class="empty">Market snapshots will appear when the next signal clears the scanner.</div>
+      {% endif %}
+    </div>
+  </div>
+</div></section>
+
 <section id="proof"><div class="wrap">
   <div class="section-head">
-    <span class="eyebrow">From the backtest</span>
+    <span class="eyebrow">03 / Historical proof</span>
     <h2>What these signals have caught before</h2>
-    <p>Resolved examples from our 5-year historical simulation &mdash; labeled honestly as backtest, not live results.</p>
+    <p>Resolved examples from our historical simulation &mdash; labeled honestly as backtest, not live results. Dollar amounts are a $10,000 hypothetical position, for illustration only.</p>
   </div>
   {% if examples %}
   <div class="trade-grid">
     {% for e in examples %}
-    <div class="trade-card">
+    <div class="trade-card fade-in">
       <div class="trade-top">
         <div class="trade-avatar">{{ e.ticker[:2] }}</div>
         <div class="trade-gain {{ 'pos' if e.pnl >= 0 else 'neg' }}">{{ '+' if e.pnl >= 0 else '' }}{{ e.pnl }}%</div>
       </div>
       <div class="trade-ticker">${{ e.ticker }}</div>
       <div class="trade-meta">Entered {{ e.entry_date }} &middot; held {{ e.days_held }} days</div>
+      {% if e.pnl >= 0 %}
+      <div style="color:var(--accent);font-weight:700;font-size:14px;margin-top:8px;">A $10,000 position would have made ${{ "{:,.0f}".format(10000 * e.pnl / 100) }}</div>
+      {% endif %}
       <div class="trade-narrative">A {{ e.rating }}-rated signal on ${{ e.ticker }} &mdash; in the backtest, holding from entry to exit returned {{ e.pnl }}%.</div>
       <span class="trade-badge {{ e.rating|replace('+','plus') }}">{{ e.rating }} rated</span>
     </div>
@@ -388,22 +2265,51 @@ HOME_TEMPLATE = """
 
 <section id="signals"><div class="wrap">
   <div class="section-head">
-    <span class="eyebrow">Live &middot; Updated Daily</span>
+    <span class="eyebrow">04 / Current output</span>
     <h2>Today's scored signals</h2>
-    <p>Real SEC filings from the last scan. Rating and reasoning only &mdash; no position sizing, that part's your call.</p>
+    <p>Each qualifying filing with its conviction, model framework, full thesis and the risks that could break it.</p>
   </div>
   {% if signals %}
-  <div class="trade-grid">
+  <div class="signal-brief-grid">
     {% for s in signals %}
-    <div class="trade-card">
-      <div class="trade-top">
-        <div class="trade-avatar">{{ s.ticker[:2] }}</div>
-        <span class="trade-badge {{ s.rating|replace('+','plus') }}">{{ s.rating }}</span>
+    <article class="trade-card signal-brief-card fade-in">
+      <div class="signal-brief-head">
+        <div class="signal-brief-symbol">
+          <div class="trade-avatar">{{ s.ticker[:2]|upper }}</div>
+          <div><div class="trade-ticker">${{ s.ticker }}</div><div class="signal-company">{{ s.company or 'Company name unavailable' }}</div></div>
+        </div>
+        <div class="signal-brief-badges">
+          {% if s.conviction %}<span class="conviction-pill">{{ s.conviction }} conviction</span>{% endif %}
+          <span class="trade-badge {{ s.rating|replace('+','plus') }}">{{ s.rating }} rated</span>
+        </div>
       </div>
-      <div class="trade-ticker">${{ s.ticker }}</div>
-      <div class="trade-meta">Filed near ${{ s.entry_price }}</div>
-      <div class="trade-narrative">{{ s.reason }}</div>
-    </div>
+      <div class="signal-framework" aria-label="Signal framework">
+        <div class="signal-framework-cell"><span>Entry reference</span><strong>${{ s.entry_price }}</strong><small>Price at scan</small></div>
+        <div class="signal-framework-cell"><span>Model target</span><strong>{{ '$%.2f'|format(s.take_profit) if s.take_profit is not none else 'Not set' }}</strong><small>{{ '%+.1f'|format(s.target_pct) + '%' if s.target_pct is not none else 'No target' }}</small></div>
+        <div class="signal-framework-cell"><span>Research window</span><strong>{{ '%.0f'|format(s.max_hold) + ' days' if s.max_hold is not none else 'Open' }}</strong><small>{{ s.hold_mode|title if s.hold_mode else 'Signal review' }}</small></div>
+        <div class="signal-framework-cell"><span>Exit risk rule</span><strong>{{ '$%.2f'|format(s.stop_loss) if s.stop_loss is not none else 'No fixed stop' }}</strong><small>Model parameter</small></div>
+      </div>
+      <div class="signal-brief-body">
+        {% if s.insider_name %}<div class="signal-insider-line">{{ s.insider_name }}{% if s.insider_title %} &middot; {{ s.insider_title }}{% endif %}{% if s.total_amount %} &middot; ${{ "{:,.0f}".format(s.total_amount) }} purchase{% endif %}{% if s.trade_date %} &middot; {{ s.trade_date }}{% endif %}</div>{% endif %}
+        <div class="signal-thesis-block">
+          <div class="signal-thesis-label">Why it qualified</div>
+          <p class="signal-thesis-text">{{ s.reason or 'The scanner qualified this filing, but a written thesis is not available for this record.' }}</p>
+        </div>
+        <div class="signal-thesis-block signal-watch">
+          <div class="signal-thesis-label">Watch before acting</div>
+          <p class="signal-thesis-text">{{ s.red_flags or 'No separate red-flag note was recorded. Review the filing and current company disclosures independently.' }}</p>
+        </div>
+        <div class="mkt-strip">
+        <div class="mkt-cell"><span class="l">Price</span><span class="v">${{ s.entry_price }}</span></div>
+        <div class="mkt-cell"><span class="l">Mkt Cap</span><span class="v">{{ s.market_cap|mcap }}</span></div>
+        <div class="mkt-cell"><span class="l">RSI (14)</span><span class="v {{ 'hi' if s.rsi14 and s.rsi14 >= 70 else ('lo' if s.rsi14 and s.rsi14 <= 30 else '') }}">{{ s.rsi14 if s.rsi14 else '—' }}</span></div>
+        <div class="mkt-cell"><span class="l">52W Low</span><span class="v">{{ '$%.2f'|format(s.low_52w) if s.low_52w else '—' }}</span></div>
+        <div class="mkt-cell"><span class="l">52W High</span><span class="v">{{ '$%.2f'|format(s.high_52w) if s.high_52w else '—' }}</span></div>
+        <div class="mkt-cell"><span class="l">20D Chg</span><span class="v {{ 'hi' if s.ret_20d_pct and s.ret_20d_pct < 0 else ('lo' if s.ret_20d_pct and s.ret_20d_pct > 0 else '') }}">{{ '%+.1f'|format(s.ret_20d_pct) + '%' if s.ret_20d_pct is not none else '—' }}</span></div>
+        </div>
+        <p class="signal-sizing-note"><strong>Allocation:</strong> subscriber-set. Public research does not publish private account size, dollar allocation or share count.</p>
+      </div>
+    </article>
     {% endfor %}
   </div>
   {% else %}
@@ -430,7 +2336,7 @@ HOME_TEMPLATE = """
     <div class="compare-card highlight">
       <h3>AI INSIDER</h3>
       <ul>
-        <li>Filtered against a 5-year backtest of scoring rules</li>
+        <li>Filtered against a 20+ year backtest of scoring rules</li>
         <li>C-suite involvement, ownership increase, price setup all weighed</li>
         <li>Plain-English reasoning on every signal that qualifies</li>
       </ul>
@@ -487,7 +2393,7 @@ HOME_TEMPLATE = """
     </div>
     <div class="faq-item">
       <h4>What's the difference between this and OpenInsider?</h4>
-      <p>OpenInsider shows you every filing, unfiltered. We run each purchase through rules validated on five years of historical data and only surface the ones that pass.</p>
+      <p>OpenInsider shows you every filing, unfiltered. We run each purchase through rules validated on two decades of historical data and only surface the ones that pass.</p>
     </div>
     <div class="faq-item">
       <h4>Is this investment advice?</h4>
@@ -507,6 +2413,8 @@ def home():
         HOME_TEMPLATE,
         signals=load_public_signals(),
         examples=load_resolved_examples(),
+        filings=load_filings_table(),
+        trust_stats=load_trust_stats(),
     )
 
 
@@ -514,6 +2422,8 @@ def home():
 
 TRACK_RECORD_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
 <title>Track Record &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -527,7 +2437,7 @@ TRACK_RECORD_TEMPLATE = """
 <section><div class="wrap">
   <div class="section-head" style="text-align:left;margin:0 0 28px;">
     <span class="eyebrow">2021&ndash;2026 simulation &middot; Hypothetical backtest</span>
-    <h2 style="font-size:26px;">5-year backtest</h2>
+    <h2 style="font-size:26px;">20+ year backtest</h2>
   </div>
   {% if returns %}
   <div class="stat-grid">
@@ -623,6 +2533,8 @@ def leaderboard():
 
 LEADERBOARD_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
 <title>Leaderboard &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -676,6 +2588,7 @@ LEADERBOARD_TEMPLATE = """
 
 
 
+@app.route("/track-record")
 def track_record():
     return render_template_string(
         TRACK_RECORD_TEMPLATE,
@@ -688,6 +2601,8 @@ def track_record():
 
 HOW_IT_WORKS_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
 <title>How It Works &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -715,6 +2630,8 @@ def how_it_works():
 
 SIMPLE_PAGE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
 <title>{{ title }} &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -731,10 +2648,12 @@ DISCLAIMER_BODY = """
 <p>AI INSIDER publishes information derived from public SEC filings for informational and educational purposes only. Nothing on this site constitutes investment advice, a recommendation, or a solicitation to buy or sell any security. We are not a registered investment adviser or broker-dealer.</p>
 <p>Past performance, whether backtested or live, is not indicative of future results. All investing involves risk, including possible loss of principal. Do your own research and consult a licensed financial professional before making investment decisions.</p>
 <p>Backtested results shown on this site are hypothetical, have inherent limitations, and do not represent actual trading.</p>
+<p>Market data and charts may be delayed, incomplete, or unavailable. They are provided for context only and must not be used for order execution or price verification.</p>
 """
 
 PRIVACY_BODY = """
 <p>This site does not currently collect personal information beyond standard web server logs. If ads are enabled, third-party providers (e.g. Google AdSense) may use cookies to serve relevant ads &mdash; see their own privacy policies.</p>
+<p>The market chart is provided by TradingView. Loading the embedded chart connects your browser directly to TradingView, and that connection is governed by TradingView's privacy policy.</p>
 """
 
 ABOUT_BODY = """
@@ -760,4 +2679,7 @@ def about():
 if __name__ == "__main__":
     print("Public site starting (preview only)...")
     print("Open http://localhost:5001")
-    app.run(host="127.0.0.1", port=5001, debug=False)
+    # 0.0.0.0 = accept connections from anywhere (needed on a real server).
+    # If you're ever running this on your own PC again for local testing,
+    # change back to "127.0.0.1" so it's not exposed to your home network.
+    app.run(host="0.0.0.0", port=5001, debug=False)

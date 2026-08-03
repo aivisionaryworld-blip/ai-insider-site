@@ -46,6 +46,14 @@ def main():
             "signal_date": today_date,
             "entry_price": r.get("confirmed_entry", r.get("current_price", "")),
             "reason": str(r.get("reason", ""))[:400],
+            "insider_name": r.get("insider_name", ""),
+            "insider_title": r.get("insider_title", ""),
+            "total_amount": r.get("total_amount", 0) or 0,
+            "market_cap": r.get("market_cap"),
+            "rsi14": r.get("rsi14"),
+            "low_52w": r.get("low_52w"),
+            "high_52w": r.get("high_52w"),
+            "ret_20d_pct": r.get("ret_20d_pct"),
             # deliberately NOT included: allocation_pct, basket_allocation_$,
             # basket_shares — same public-safety rule as the website itself
         })
