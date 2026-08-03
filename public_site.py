@@ -1709,6 +1709,135 @@ footer {
 .market-range-labels { margin-top: 7px; color: #646e77; font-family: 'JetBrains Mono', monospace; font-size: 8px; }
 .market-source-note { margin: 14px 0 0; color: #69737c; font-size: 10px; line-height: 1.55; }
 
+.new-trade-alert {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 28px;
+  border: 1px solid rgba(64, 226, 164, .27);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 88% 8%, rgba(0, 236, 159, .12), transparent 34%),
+    radial-gradient(circle at 8% 100%, rgba(8, 124, 255, .1), transparent 36%),
+    linear-gradient(145deg, rgba(16, 25, 31, .96), rgba(6, 12, 16, .96));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .28), inset 0 1px rgba(255,255,255,.035);
+}
+.new-trade-alert::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, #00ec9f, #087cff);
+  box-shadow: 0 0 22px rgba(0, 236, 159, .6);
+}
+.new-trade-alert-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 26px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.new-trade-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: #86f2c5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+.new-trade-kicker::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #00ec9f;
+  box-shadow: 0 0 12px rgba(0, 236, 159, .85);
+}
+.new-trade-alert-head h3 { margin: 9px 0 0; color: #f3f7f5; font-size: 30px; letter-spacing: -.045em; }
+.new-trade-alert-head p { margin: 5px 0 0; color: #7f8a92; font-size: 12px; }
+.new-trade-alert-badges { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.new-trade-alert-main {
+  display: grid;
+  grid-template-columns: minmax(190px, .72fr) minmax(0, 2.28fr);
+  gap: 24px;
+  padding: 25px 26px;
+}
+.new-trade-symbol {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 128px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 10px;
+  background: rgba(3, 8, 11, .4);
+}
+.new-trade-symbol span, .new-trade-stat span, .new-trade-copy-label {
+  color: #69757d;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.new-trade-symbol strong { margin-top: 8px; color: #f5f8f7; font-size: 43px; letter-spacing: -.055em; line-height: 1; }
+.new-trade-symbol small { margin-top: 8px; color: #8a949b; font-size: 11px; line-height: 1.4; }
+.new-trade-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.new-trade-stat {
+  min-width: 0;
+  padding: 16px 17px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 9px;
+  background: rgba(3, 8, 11, .32);
+}
+.new-trade-stat strong { display: block; margin-top: 7px; color: #e9edeb; font-family: 'JetBrains Mono', monospace; font-size: 18px; }
+.new-trade-stat small { display: block; margin-top: 4px; color: #707b82; font-size: 9px; }
+.new-trade-stat.allocation { border-color: rgba(0,236,159,.22); background: rgba(0, 100, 69, .1); }
+.new-trade-stat.allocation strong { color: #6ff0bd; }
+.new-trade-copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(260px, .55fr);
+  gap: 12px;
+  padding: 0 26px 24px;
+}
+.new-trade-copy-block {
+  padding: 18px 19px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 10px;
+  background: rgba(3, 8, 11, .28);
+}
+.new-trade-copy-block p { margin: 9px 0 0; color: #c5cbc8; font-size: 13px; line-height: 1.72; }
+.new-trade-copy-block.watch { border-color: rgba(255, 153, 102, .2); background: rgba(82, 35, 23, .14); }
+.new-trade-copy-block.watch .new-trade-copy-label { color: #efa479; }
+.new-trade-copy-block.watch p { color: #c6b5ac; }
+.new-trade-risk {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 0 26px 26px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 112, 92, .35);
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(106, 26, 22, .28), rgba(70, 30, 18, .16));
+}
+.new-trade-risk-icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgba(255, 132, 105, .45);
+  border-radius: 50%;
+  color: #ff9a7e;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 800;
+}
+.new-trade-risk strong { display: block; color: #ffb19c; font-size: 15px; letter-spacing: -.01em; }
+.new-trade-risk p { margin: 4px 0 0; color: #bea9a2; font-size: 12px; line-height: 1.55; }
+.signal-list-label { margin: 0 0 13px; color: #7a858d; font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
 .signal-brief-grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
 .signal-brief-card { overflow: hidden; padding: 0; }
 .signal-brief-card:hover { transform: translateY(-2px); }
@@ -1762,8 +1891,8 @@ footer {
 .signal-watch .signal-thesis-label { color: #e3a076; }
 .signal-watch .signal-thesis-text { color: #b9aaa2; font-size: 12px; }
 .signal-brief-card .mkt-strip { margin-top: 19px; }
-.signal-sizing-note { margin: 15px 0 0; color: #68727a; font-size: 10px; line-height: 1.55; }
-.signal-sizing-note strong { color: #929ba3; font-weight: 600; }
+.signal-sizing-note { margin: 15px 0 0; color: #89939a; font-size: 11.5px; line-height: 1.6; }
+.signal-sizing-note strong { color: #c1c8cc; font-weight: 650; }
 
 @media (prefers-reduced-motion: reduce) {
   .bg-mesh span { animation: none !important; }
@@ -1777,6 +1906,13 @@ footer {
   .tradingview-widget-container { height: 440px; }
   .signal-brief-head { padding: 19px 17px 16px; }
   .signal-brief-body { padding: 19px 17px 20px; }
+  .new-trade-alert-head { padding: 21px 18px 18px; }
+  .new-trade-alert-head h3 { font-size: 25px; }
+  .new-trade-alert-main { grid-template-columns: 1fr; gap: 10px; padding: 18px; }
+  .new-trade-symbol { min-height: 0; }
+  .new-trade-symbol strong { font-size: 36px; }
+  .new-trade-copy { grid-template-columns: 1fr; padding: 0 18px 18px; }
+  .new-trade-risk { margin: 0 18px 20px; }
   .signal-framework { grid-template-columns: repeat(2, 1fr); }
   .signal-framework-cell:nth-child(2) { border-right: 0; }
   .signal-framework-cell:nth-child(-n+2) { border-bottom: 1px solid rgba(255,255,255,.065); }
@@ -2282,6 +2418,51 @@ HOME_TEMPLATE = """
     <p>Each qualifying filing with its conviction, model framework, full thesis and the risks that could break it.</p>
   </div>
   {% if signals %}
+  {% set latest = signals[0] %}
+  <article class="new-trade-alert fade-in" aria-labelledby="new-trade-title">
+    <div class="new-trade-alert-head">
+      <div>
+        <span class="new-trade-kicker">New trade signal</span>
+        <h3 id="new-trade-title">A new model setup has qualified</h3>
+        <p>Published {{ latest.signal_date or latest.trade_date or 'after the latest scan' }} &middot; Review the complete thesis before acting.</p>
+      </div>
+      <div class="new-trade-alert-badges">
+        {% if latest.conviction %}<span class="conviction-pill">{{ latest.conviction }} conviction</span>{% endif %}
+        <span class="trade-badge {{ latest.rating|replace('+','plus') }}">{{ latest.rating }} rated</span>
+      </div>
+    </div>
+    <div class="new-trade-alert-main">
+      <div class="new-trade-symbol">
+        <span>Ticker</span>
+        <strong>${{ latest.ticker }}</strong>
+        <small>{{ latest.company or 'Company name unavailable' }}</small>
+      </div>
+      <div class="new-trade-stats" aria-label="New trade setup">
+        <div class="new-trade-stat"><span>Entry</span><strong>${{ latest.entry_price }}</strong><small>Reference price at scan</small></div>
+        <div class="new-trade-stat"><span>Target</span><strong>{{ '$%.2f'|format(latest.take_profit) if latest.take_profit is not none else 'Price action' }}</strong><small>{{ '%+.1f'|format(latest.target_pct) + '%' if latest.target_pct is not none else 'No fixed target' }}</small></div>
+        <div class="new-trade-stat"><span>Maximum hold</span><strong>{{ '%.0f'|format(latest.max_hold) + ' days' if latest.max_hold is not none else 'Open' }}</strong><small>{{ latest.hold_mode|title if latest.hold_mode else 'Model review window' }}</small></div>
+        <div class="new-trade-stat allocation"><span>Model allocation</span><strong>{{ '%.2f'|format(latest.model_allocation_pct)|replace('.00', '') + '%' if latest.model_allocation_pct is not none else 'Not set' }}</strong><small>Percentage of model portfolio</small></div>
+      </div>
+    </div>
+    <div class="new-trade-copy">
+      <div class="new-trade-copy-block">
+        <span class="new-trade-copy-label">Why</span>
+        <p>{{ latest.reason or 'The scanner qualified this filing, but a written thesis is not available for this record.' }}</p>
+      </div>
+      <div class="new-trade-copy-block watch">
+        <span class="new-trade-copy-label">Watch</span>
+        <p>{{ latest.red_flags or 'Review the SEC filing, company disclosures and current market conditions independently.' }}</p>
+      </div>
+    </div>
+    <div class="new-trade-risk" role="note" aria-label="Trading risk warning">
+      <span class="new-trade-risk-icon" aria-hidden="true">!</span>
+      <div>
+        <strong>Trade at your own risk.</strong>
+        <p>This is research generated from public information, not financial advice or a guarantee of profit. Verify the filing and decide whether the risk is appropriate for you.</p>
+      </div>
+    </div>
+  </article>
+  <div class="signal-list-label">Full research cards</div>
   <div class="signal-brief-grid">
     {% for s in signals %}
     <article class="trade-card signal-brief-card fade-in">
