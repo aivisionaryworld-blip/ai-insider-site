@@ -2898,7 +2898,6 @@ HOME_TEMPLATE = """
           <button class="performance-range" type="button" data-range="1M" aria-pressed="false">1M</button>
           <button class="performance-range" type="button" data-range="3M" aria-pressed="false">3M</button>
           <button class="performance-range active" type="button" data-range="YTD" aria-pressed="true">YTD</button>
-          <button class="performance-range" type="button" data-range="MAX" aria-pressed="false">Max</button>
         </div>
       </div>
       <div class="performance-plot">
@@ -3367,7 +3366,7 @@ HOME_TEMPLATE = """
   const windowLabel = document.querySelector('[data-performance-window]');
   const buttons = Array.from(document.querySelectorAll('[data-range]'));
   const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-  const rangeNames = { '1D': 'One trading day', '1W': 'One week', '1M': 'One month', '3M': 'Three months', 'YTD': 'Year to date', 'MAX': 'Maximum comparable history' };
+  const rangeNames = { '1D': 'One trading day', '1W': 'One week', '1M': 'One month', '3M': 'Three months', 'YTD': 'Year to date' };
   let activeRange = 'YTD';
   let visibleRows = [];
   let hoverIndex = null;
@@ -3389,7 +3388,6 @@ HOME_TEMPLATE = """
   };
 
   const rangeStartIndex = range => {
-    if (range === 'MAX') return 0;
     if (range === '1D') return Math.max(0, allRows.length - 2);
     const end = allRows[allRows.length - 1].date;
     let cutoff;
