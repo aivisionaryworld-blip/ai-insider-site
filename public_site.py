@@ -29,6 +29,7 @@ import hashlib
 import os
 import sys
 from datetime import datetime
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
@@ -259,6 +260,105 @@ def load_real_returns():
         return compute_all_returns(path)
     except Exception:
         return None
+
+
+def load_performance_comparison():
+    """Build a public, cash-flow-neutral strategy index alongside SPY.
+
+    The strategy line removes deposits before chaining each day's return, so
+    contributions cannot make the backtest appear to outperform. Both series
+    are joined on the same trading dates and rebased in the browser for the
+    selected 1D / 1W / 1M / 3M / YTD / Max window.
+    """
+    equity_path = os.path.join(BASE_DIR, "bt_v24_equity.csv")
+    benchmark_path = os.path.join(BASE_DIR, "spy_benchmark.csv")
+    if not os.path.exists(equity_path) or not os.path.exists(benchmark_path):
+        return None
+    try:
+        return _load_performance_comparison_cached(
+            os.path.getmtime(equity_path),
+            os.path.getmtime(benchmark_path),
+        )
+    except Exception:
+        return None
+
+
+@lru_cache(maxsize=4)
+def _load_performance_comparison_cached(_equity_mtime, _benchmark_mtime):
+    equity_path = os.path.join(BASE_DIR, "bt_v24_equity.csv")
+    benchmark_path = os.path.join(BASE_DIR, "spy_benchmark.csv")
+
+    equity = pd.read_csv(equity_path)
+    benchmark = pd.read_csv(benchmark_path)
+    required_equity = {"date", "equity_$", "deposited_$"}
+    required_benchmark = {"date", "adjusted_close"}
+    if not required_equity.issubset(equity.columns) or not required_benchmark.issubset(benchmark.columns):
+        return None
+
+    equity = equity[["date", "equity_$", "deposited_$"]].copy()
+    equity["date"] = pd.to_datetime(equity["date"], errors="coerce").dt.normalize()
+    equity["equity_$"] = pd.to_numeric(equity["equity_$"], errors="coerce")
+    equity["deposited_$"] = pd.to_numeric(equity["deposited_$"], errors="coerce")
+    equity = equity.dropna().sort_values("date").drop_duplicates("date", keep="last")
+
+    benchmark = benchmark[["date", "adjusted_close"]].copy()
+    benchmark["date"] = pd.to_datetime(benchmark["date"], errors="coerce").dt.normalize()
+    benchmark["adjusted_close"] = pd.to_numeric(benchmark["adjusted_close"], errors="coerce")
+    benchmark = benchmark.dropna().sort_values("date").drop_duplicates("date", keep="last")
+    benchmark = benchmark[benchmark["adjusted_close"] > 0]
+    if len(equity) < 2 or len(benchmark) < 2:
+        return None
+
+    strategy_index = [100.0]
+    for index in range(1, len(equity)):
+        previous = equity.iloc[index - 1]
+        current = equity.iloc[index]
+        previous_equity = float(previous["equity_$"])
+        deposit_change = float(current["deposited_$"] - previous["deposited_$"])
+        if previous_equity <= 0:
+            strategy_index.append(strategy_index[-1])
+            continue
+        daily_return = (float(current["equity_$"]) - deposit_change - previous_equity) / previous_equity
+        growth_factor = max(0.000001, 1.0 + daily_return)
+        strategy_index.append(strategy_index[-1] * growth_factor)
+
+    strategy = pd.DataFrame({
+        "date": equity["date"].to_numpy(),
+        "strategy_index": strategy_index,
+    })
+    comparison = benchmark.merge(strategy, on="date", how="inner")
+    comparison = comparison.sort_values("date")
+    if len(comparison) < 2:
+        return None
+
+    points = [
+        [
+            row.date.strftime("%Y-%m-%d"),
+            round(float(row.strategy_index), 6),
+            round(float(row.adjusted_close), 6),
+        ]
+        for row in comparison.itertuples(index=False)
+    ]
+    summary = load_backtest_summary() or {}
+    trade_count = summary.get("positions")
+    win_rate = summary.get("win_rate_%")
+    try:
+        trade_count = int(float(trade_count))
+    except (TypeError, ValueError):
+        trade_count = None
+    try:
+        win_rate = round(float(win_rate), 1)
+    except (TypeError, ValueError):
+        win_rate = None
+
+    return {
+        "points": points,
+        "start_date": points[0][0],
+        "as_of": points[-1][0],
+        "trade_count": trade_count,
+        "win_rate": win_rate,
+        "benchmark_label": "S&P 500 (SPY proxy)",
+    }
 
 
 def load_live_track_record():
@@ -1894,6 +1994,150 @@ footer {
 .signal-sizing-note { margin: 15px 0 0; color: #89939a; font-size: 11.5px; line-height: 1.6; }
 .signal-sizing-note strong { color: #c1c8cc; font-weight: 650; }
 
+/* Seeking Alpha-style performance dashboard, using public backtest data. */
+.performance-terminal {
+  position: relative;
+  padding: 28px 0 18px;
+  border-bottom: 0;
+}
+.performance-shell {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .105);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 5% 0%, rgba(8, 124, 255, .12), transparent 34%),
+    radial-gradient(circle at 100% 100%, rgba(0, 236, 159, .08), transparent 36%),
+    linear-gradient(145deg, rgba(18, 25, 31, .86), rgba(6, 11, 15, .91));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.075), 0 30px 90px rgba(0,0,0,.28);
+  backdrop-filter: blur(28px) saturate(135%);
+  -webkit-backdrop-filter: blur(28px) saturate(135%);
+}
+.performance-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, #087cff, #00ec9f 58%, transparent);
+  opacity: .82;
+}
+.performance-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 27px 29px 22px;
+  border-bottom: 1px solid rgba(255,255,255,.075);
+}
+.performance-heading .eyebrow { margin-bottom: 10px; }
+.performance-heading h2 { color: #f3f6f7; font-size: clamp(25px, 3vw, 36px); letter-spacing: -.045em; }
+.performance-heading p { max-width: 690px; margin: 9px 0 0; color: #88939b; font-size: 12px; line-height: 1.65; }
+.performance-badges { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.performance-badge {
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  color: #9aa4ab;
+  background: rgba(255,255,255,.035);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: .065em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.performance-badge.live { border-color: rgba(0,236,159,.2); color: #75e9b9; background: rgba(0,105,73,.1); }
+.performance-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid rgba(255,255,255,.075);
+}
+.performance-kpi { padding: 19px 29px 18px; border-right: 1px solid rgba(255,255,255,.075); }
+.performance-kpi:last-child { border-right: 0; }
+.performance-kpi span { display: block; color: #6f7b84; font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: .085em; text-transform: uppercase; }
+.performance-kpi strong { display: block; margin-top: 8px; color: #ecf1f2; font-family: 'JetBrains Mono', monospace; font-size: clamp(22px, 3vw, 31px); letter-spacing: -.045em; }
+.performance-kpi strong.pos { color: #63e8b2; }
+.performance-kpi strong.neg { color: #ff8278; }
+.performance-kpi small { display: block; margin-top: 4px; color: #67727a; font-size: 9px; }
+.performance-chart-panel { padding: 22px 29px 25px; }
+.performance-chart-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
+.performance-window-label span { display: block; color: #67727b; font-family: 'JetBrains Mono', monospace; font-size: 7.5px; letter-spacing: .08em; text-transform: uppercase; }
+.performance-window-label strong { display: block; margin-top: 4px; color: #aeb7bd; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 500; }
+.performance-ranges { display: inline-flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid rgba(255,255,255,.075); border-radius: 8px; background: rgba(4, 8, 11, .38); }
+.performance-range {
+  min-width: 42px;
+  border: 0;
+  border-radius: 5px;
+  padding: 7px 9px;
+  color: #7d8890;
+  background: transparent;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.performance-range:hover { color: #dce2e4; }
+.performance-range:focus-visible { outline: 2px solid rgba(92, 189, 255, .8); outline-offset: 2px; }
+.performance-range.active { color: #ecffff; background: linear-gradient(135deg, rgba(8,124,255,.28), rgba(0,236,159,.18)); box-shadow: inset 0 0 0 1px rgba(91,223,188,.17); }
+.performance-plot { position: relative; height: 330px; border: 1px solid rgba(255,255,255,.055); border-radius: 11px; background: rgba(2, 7, 10, .25); }
+.performance-canvas { display: block; width: 100%; height: 100%; }
+.performance-tooltip {
+  position: absolute;
+  z-index: 3;
+  display: none;
+  min-width: 174px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 8px;
+  background: rgba(5, 10, 14, .92);
+  box-shadow: 0 18px 46px rgba(0,0,0,.38);
+  backdrop-filter: blur(16px);
+  pointer-events: none;
+}
+.performance-tooltip.show { display: block; }
+.performance-tooltip time { display: block; color: #7c8790; font-family: 'JetBrains Mono', monospace; font-size: 8px; }
+.performance-tooltip div { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 7px; color: #aeb6bc; font-size: 10px; }
+.performance-tooltip strong { font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+.performance-tooltip .strategy-value { color: #65edb5; }
+.performance-tooltip .benchmark-value { color: #75baff; }
+.performance-legend { display: flex; align-items: center; gap: 20px; margin-top: 13px; color: #828c94; font-size: 10px; }
+.performance-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.performance-legend i { width: 20px; height: 2px; border-radius: 99px; background: #00ec9f; box-shadow: 0 0 8px rgba(0,236,159,.25); }
+.performance-legend .benchmark i { background: #4ba3ff; box-shadow: none; }
+.performance-foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,.065);
+  color: #69747c;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.performance-risk { max-width: 590px; color: #a89289; }
+.performance-risk strong { color: #e9a88d; }
+.performance-asof { flex: 0 0 auto; font-family: 'JetBrains Mono', monospace; text-align: right; }
+
+@media (max-width: 760px) {
+  .performance-terminal { padding-top: 18px; }
+  .performance-head { flex-direction: column; padding: 23px 19px 18px; }
+  .performance-badges { justify-content: flex-start; }
+  .performance-kpis { grid-template-columns: 1fr; }
+  .performance-kpi { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 14px 19px; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.065); }
+  .performance-kpi:last-child { border-bottom: 0; }
+  .performance-kpi strong { grid-column: 2; grid-row: 1 / span 2; margin: 0; font-size: 22px; }
+  .performance-kpi small { grid-column: 1; }
+  .performance-chart-panel { padding: 18px 12px 20px; }
+  .performance-chart-toolbar { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .performance-ranges { width: 100%; overflow-x: auto; }
+  .performance-range { flex: 1 0 42px; }
+  .performance-plot { height: 270px; }
+  .performance-foot { flex-direction: column; gap: 10px; }
+  .performance-asof { text-align: left; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bg-mesh span { animation: none !important; }
   .live-watch.checking .live-watch-dot { animation: none; }
@@ -1968,7 +2212,8 @@ NAV = """
       <span class="brand-build">INTEL // 24</span>
     </a>
     <div class="nav-links">
-      <a href="/">Signals</a>
+      <a href="/#performance">Dashboard</a>
+      <a href="/#signals">Signals</a>
       <a href="/#market-data">Market</a>
       <a href="/track-record">Track Record</a>
       <a href="/leaderboard">Leaderboard</a>
@@ -2228,6 +2473,77 @@ HOME_TEMPLATE = """
 <style>""" + BASE_CSS + """</style>
 </head><body>
 """ + NAV + """
+
+{% if performance %}
+<section id="performance" class="performance-terminal" aria-labelledby="performance-title"><div class="wrap">
+  <article class="performance-shell">
+    <header class="performance-head">
+      <div class="performance-heading">
+        <span class="eyebrow">Strategy dashboard</span>
+        <h2 id="performance-title">AI Insider vs. the S&amp;P 500</h2>
+        <p>A cash-flow-neutral backtest of the published signal rules compared with SPY adjusted-close performance. Every selected period is rebased to 0% for a fair like-for-like comparison.</p>
+      </div>
+      <div class="performance-badges" aria-label="Performance dataset details">
+        {% if performance.trade_count %}<span class="performance-badge">{{ performance.trade_count }} backtested trades</span>{% endif %}
+        {% if performance.win_rate is not none %}<span class="performance-badge">{{ performance.win_rate }}% historical win rate</span>{% endif %}
+        <span class="performance-badge live">{{ signals|length }} open signal{{ '' if signals|length == 1 else 's' }}</span>
+      </div>
+    </header>
+
+    <div class="performance-kpis" aria-live="polite">
+      <div class="performance-kpi">
+        <span>AI Insider backtest</span>
+        <strong data-strategy-return>&mdash;</strong>
+        <small>Time-weighted signal return</small>
+      </div>
+      <div class="performance-kpi">
+        <span>S&amp;P 500</span>
+        <strong data-benchmark-return>&mdash;</strong>
+        <small>SPY adjusted-close proxy</small>
+      </div>
+      <div class="performance-kpi">
+        <span>Excess return</span>
+        <strong data-alpha-return>&mdash;</strong>
+        <small>Strategy minus benchmark</small>
+      </div>
+    </div>
+
+    <div class="performance-chart-panel">
+      <div class="performance-chart-toolbar">
+        <div class="performance-window-label">
+          <span>Selected comparison window</span>
+          <strong data-performance-window>Year to date</strong>
+        </div>
+        <div class="performance-ranges" role="group" aria-label="Performance chart period">
+          <button class="performance-range" type="button" data-range="1D" aria-pressed="false">1D</button>
+          <button class="performance-range" type="button" data-range="1W" aria-pressed="false">1W</button>
+          <button class="performance-range" type="button" data-range="1M" aria-pressed="false">1M</button>
+          <button class="performance-range" type="button" data-range="3M" aria-pressed="false">3M</button>
+          <button class="performance-range active" type="button" data-range="YTD" aria-pressed="true">YTD</button>
+          <button class="performance-range" type="button" data-range="MAX" aria-pressed="false">Max</button>
+        </div>
+      </div>
+      <div class="performance-plot">
+        <canvas class="performance-canvas" data-performance-canvas role="img" aria-label="AI Insider backtest compared with the S&P 500"></canvas>
+        <div class="performance-tooltip" data-performance-tooltip>
+          <time data-tooltip-date></time>
+          <div><span>AI Insider</span><strong class="strategy-value" data-tooltip-strategy></strong></div>
+          <div><span>S&amp;P 500</span><strong class="benchmark-value" data-tooltip-benchmark></strong></div>
+        </div>
+      </div>
+      <div class="performance-legend" aria-hidden="true">
+        <span><i></i>AI Insider backtest</span>
+        <span class="benchmark"><i></i>S&amp;P 500 (SPY)</span>
+      </div>
+      <div class="performance-foot">
+        <p class="performance-risk"><strong>Hypothetical backtest:</strong> this is not a live portfolio or a guarantee of future returns. Open signals are displayed separately and are not counted as realized performance. Trade at your own risk.</p>
+        <p class="performance-asof">Comparable data<br>{{ performance.start_date }} &rarr; {{ performance.as_of }}</p>
+      </div>
+    </div>
+    <script type="application/json" id="performance-data">{{ performance|tojson }}</script>
+  </article>
+</div></section>
+{% endif %}
 
 <div class="hero home-hero"><div class="wrap">
   <div class="hero-layout">
@@ -2596,6 +2912,250 @@ HOME_TEMPLATE = """
   </div>
 </div></section>
 
+<script>
+(() => {
+  const source = document.getElementById('performance-data');
+  const canvas = document.querySelector('[data-performance-canvas]');
+  if (!source || !canvas) return;
+
+  let payload;
+  try { payload = JSON.parse(source.textContent); } catch (_) { return; }
+  const allRows = (payload.points || []).map(point => ({
+    date: new Date(point[0] + 'T00:00:00Z'),
+    dateLabel: point[0],
+    strategy: Number(point[1]),
+    benchmark: Number(point[2])
+  })).filter(row => Number.isFinite(row.strategy) && Number.isFinite(row.benchmark));
+  if (allRows.length < 2) return;
+
+  const ctx = canvas.getContext('2d');
+  const tooltip = document.querySelector('[data-performance-tooltip]');
+  const tooltipDate = document.querySelector('[data-tooltip-date]');
+  const tooltipStrategy = document.querySelector('[data-tooltip-strategy]');
+  const tooltipBenchmark = document.querySelector('[data-tooltip-benchmark]');
+  const strategyMetric = document.querySelector('[data-strategy-return]');
+  const benchmarkMetric = document.querySelector('[data-benchmark-return]');
+  const alphaMetric = document.querySelector('[data-alpha-return]');
+  const windowLabel = document.querySelector('[data-performance-window]');
+  const buttons = Array.from(document.querySelectorAll('[data-range]'));
+  const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  const rangeNames = { '1D': 'One trading day', '1W': 'One week', '1M': 'One month', '3M': 'Three months', 'YTD': 'Year to date', 'MAX': 'Maximum comparable history' };
+  let activeRange = 'YTD';
+  let visibleRows = [];
+  let hoverIndex = null;
+
+  const signedPercent = value => {
+    const decimals = Math.abs(value) >= 100 ? 1 : 2;
+    return `${value >= 0 ? '+' : ''}${value.toFixed(decimals)}%`;
+  };
+  const axisPercent = value => {
+    const abs = Math.abs(value);
+    if (abs >= 1000) return `${(value / 1000).toFixed(abs >= 10000 ? 0 : 1)}k%`;
+    if (abs >= 100) return `${value.toFixed(0)}%`;
+    return `${value.toFixed(abs < 10 ? 1 : 0)}%`;
+  };
+  const paintMetric = (node, value) => {
+    node.textContent = signedPercent(value);
+    node.classList.toggle('pos', value >= 0);
+    node.classList.toggle('neg', value < 0);
+  };
+
+  const rangeStartIndex = range => {
+    if (range === 'MAX') return 0;
+    if (range === '1D') return Math.max(0, allRows.length - 2);
+    const end = allRows[allRows.length - 1].date;
+    let cutoff;
+    if (range === 'YTD') {
+      cutoff = new Date(Date.UTC(end.getUTCFullYear(), 0, 1));
+    } else {
+      const days = { '1W': 7, '1M': 30, '3M': 90 }[range] || 0;
+      cutoff = new Date(end.getTime() - days * 86400000);
+    }
+    let index = 0;
+    for (let i = 0; i < allRows.length; i += 1) {
+      if (allRows[i].date <= cutoff) index = i;
+      else break;
+    }
+    return index;
+  };
+
+  const selectRows = range => {
+    const sourceRows = allRows.slice(rangeStartIndex(range));
+    const strategyBase = sourceRows[0].strategy;
+    const benchmarkBase = sourceRows[0].benchmark;
+    return sourceRows.map(row => ({
+      ...row,
+      strategyReturn: (row.strategy / strategyBase - 1) * 100,
+      benchmarkReturn: (row.benchmark / benchmarkBase - 1) * 100
+    }));
+  };
+
+  const drawSeries = (rows, xFor, yFor, color, width, dash = []) => {
+    ctx.save();
+    ctx.beginPath();
+    rows.forEach((row, index) => {
+      const x = xFor(index);
+      const y = yFor(row);
+      if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.setLineDash(dash);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawChart = () => {
+    if (!visibleRows.length) return;
+    const width = Math.max(320, canvas.clientWidth);
+    const height = Math.max(230, canvas.clientHeight);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+
+    const padding = { top: 20, right: 17, bottom: 34, left: width < 520 ? 48 : 58 };
+    const plotWidth = width - padding.left - padding.right;
+    const plotHeight = height - padding.top - padding.bottom;
+    const values = visibleRows.flatMap(row => [row.strategyReturn, row.benchmarkReturn]);
+    let minValue = Math.min(0, ...values);
+    let maxValue = Math.max(0, ...values);
+    const spread = Math.max(1, maxValue - minValue);
+    minValue -= spread * .12;
+    maxValue += spread * .12;
+    const xFor = index => padding.left + (visibleRows.length === 1 ? 0 : index / (visibleRows.length - 1)) * plotWidth;
+    const yValue = value => padding.top + (maxValue - value) / (maxValue - minValue) * plotHeight;
+    const strategyY = row => yValue(row.strategyReturn);
+    const benchmarkY = row => yValue(row.benchmarkReturn);
+
+    ctx.save();
+    ctx.font = "9px 'JetBrains Mono', monospace";
+    ctx.fillStyle = '#66727b';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let line = 0; line <= 4; line += 1) {
+      const ratio = line / 4;
+      const y = padding.top + ratio * plotHeight;
+      const value = maxValue - ratio * (maxValue - minValue);
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(width - padding.right, y);
+      ctx.strokeStyle = Math.abs(value) < spread / 8 ? 'rgba(255,255,255,.13)' : 'rgba(255,255,255,.055)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillText(axisPercent(value), padding.left - 8, y);
+    }
+    ctx.restore();
+
+    const zeroY = yValue(0);
+    const fill = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
+    fill.addColorStop(0, 'rgba(0, 236, 159, .16)');
+    fill.addColorStop(1, 'rgba(0, 236, 159, 0)');
+    ctx.beginPath();
+    visibleRows.forEach((row, index) => {
+      const x = xFor(index);
+      const y = strategyY(row);
+      if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.lineTo(xFor(visibleRows.length - 1), zeroY);
+    ctx.lineTo(xFor(0), zeroY);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+
+    drawSeries(visibleRows, xFor, benchmarkY, '#4ba3ff', 1.7, [5, 4]);
+    drawSeries(visibleRows, xFor, strategyY, '#00ec9f', 2.2);
+
+    const labelIndexes = [0, Math.floor((visibleRows.length - 1) / 2), visibleRows.length - 1];
+    ctx.save();
+    ctx.font = "8px 'JetBrains Mono', monospace";
+    ctx.fillStyle = '#647078';
+    ctx.textBaseline = 'bottom';
+    labelIndexes.forEach((index, position) => {
+      ctx.textAlign = position === 0 ? 'left' : position === 2 ? 'right' : 'center';
+      ctx.fillText(visibleRows[index].dateLabel, xFor(index), height - 8);
+    });
+    ctx.restore();
+
+    if (hoverIndex !== null && visibleRows[hoverIndex]) {
+      const row = visibleRows[hoverIndex];
+      const x = xFor(hoverIndex);
+      ctx.beginPath();
+      ctx.moveTo(x, padding.top);
+      ctx.lineTo(x, padding.top + plotHeight);
+      ctx.strokeStyle = 'rgba(255,255,255,.18)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      [[strategyY(row), '#00ec9f'], [benchmarkY(row), '#4ba3ff']].forEach(([y, color]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#071014';
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      });
+    }
+  };
+
+  const renderRange = range => {
+    activeRange = range;
+    hoverIndex = null;
+    if (tooltip) tooltip.classList.remove('show');
+    visibleRows = selectRows(range);
+    const latest = visibleRows[visibleRows.length - 1];
+    const strategyReturn = latest.strategyReturn;
+    const benchmarkReturn = latest.benchmarkReturn;
+    paintMetric(strategyMetric, strategyReturn);
+    paintMetric(benchmarkMetric, benchmarkReturn);
+    paintMetric(alphaMetric, strategyReturn - benchmarkReturn);
+    windowLabel.textContent = `${rangeNames[range]} · ${visibleRows[0].dateLabel} to ${latest.dateLabel}`;
+    canvas.setAttribute('aria-label', `For ${rangeNames[range]}, the AI Insider backtest returned ${signedPercent(strategyReturn)} compared with ${signedPercent(benchmarkReturn)} for the S&P 500.`);
+    buttons.forEach(button => {
+      const active = button.dataset.range === range;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    drawChart();
+  };
+
+  buttons.forEach(button => button.addEventListener('click', () => renderRange(button.dataset.range)));
+  canvas.addEventListener('pointermove', event => {
+    const rect = canvas.getBoundingClientRect();
+    const leftPadding = rect.width < 520 ? 48 : 58;
+    const plotWidth = rect.width - leftPadding - 17;
+    const localX = Math.max(0, Math.min(plotWidth, event.clientX - rect.left - leftPadding));
+    hoverIndex = Math.round((localX / Math.max(1, plotWidth)) * (visibleRows.length - 1));
+    const row = visibleRows[hoverIndex];
+    if (!row) return;
+    tooltipDate.textContent = dateFormatter.format(row.date);
+    tooltipStrategy.textContent = signedPercent(row.strategyReturn);
+    tooltipBenchmark.textContent = signedPercent(row.benchmarkReturn);
+    const tooltipWidth = 184;
+    const preferredLeft = leftPadding + (hoverIndex / Math.max(1, visibleRows.length - 1)) * plotWidth + 12;
+    tooltip.style.left = `${Math.min(rect.width - tooltipWidth - 10, Math.max(10, preferredLeft))}px`;
+    tooltip.style.top = '16px';
+    tooltip.classList.add('show');
+    drawChart();
+  });
+  canvas.addEventListener('pointerleave', () => {
+    hoverIndex = null;
+    if (tooltip) tooltip.classList.remove('show');
+    drawChart();
+  });
+
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(() => drawChart()).observe(canvas.parentElement);
+  } else {
+    window.addEventListener('resize', drawChart, { passive: true });
+  }
+  renderRange(activeRange);
+})();
+</script>
+
 """ + FOOTER.replace("{{ year }}", str(datetime.now().year)) + """
 </body></html>
 """
@@ -2609,6 +3169,7 @@ def home():
         examples=load_resolved_examples(),
         filings=load_filings_table(),
         trust_stats=load_trust_stats(),
+        performance=load_performance_comparison(),
     )
 
 
