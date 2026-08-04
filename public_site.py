@@ -2378,6 +2378,7 @@ footer {
 .ytd-trade-return.neg { color: #f1877e; }
 .ytd-ledger-note { padding: 12px 18px; border-top: 1px solid rgba(255,255,255,.055); color: #8e7971; font-size: 9px; line-height: 1.55; }
 .ytd-ledger-note strong { color: #dda087; }
+.performance-chart-panel.ledger-only .ytd-ledger { margin-top: 0; }
 
 @media (max-width: 760px) {
   .performance-terminal { padding-top: 18px; }
@@ -2825,18 +2826,18 @@ HOME_TEMPLATE = """
 </head><body>
 """ + NAV + """
 
-{% if performance %}
+{% if performance or (ytd_snapshot and ytd_ledger) %}
 <section id="performance" class="performance-terminal" aria-labelledby="performance-title"><div class="wrap">
   <article class="performance-shell">
     <header class="performance-head">
       <div class="performance-heading">
         <span class="eyebrow">Strategy dashboard</span>
-        <h2 id="performance-title">AI Insider vs. the S&amp;P 500</h2>
-        <p>A cash-flow-neutral backtest of the published signal rules compared with SPY adjusted-close performance. Every selected period is rebased to 0% for a fair like-for-like comparison.</p>
+        <h2 id="performance-title">{% if performance %}AI Insider vs. the S&amp;P 500{% else %}2026 performance &amp; trade activity{% endif %}</h2>
+        <p>{% if performance %}A cash-flow-neutral backtest of the published signal rules compared with SPY adjusted-close performance. Every selected period is rebased to 0% for a fair like-for-like comparison.{% else %}The owner-reported YTD snapshot and public trade ledger remain available while comparison-chart data is being refreshed.{% endif %}</p>
       </div>
       <div class="performance-badges" aria-label="Performance dataset details">
-        {% if performance.trade_count %}<span class="performance-badge">{{ performance.trade_count }} backtested trades</span>{% endif %}
-        {% if performance.win_rate is not none %}<span class="performance-badge">{{ performance.win_rate }}% historical win rate</span>{% endif %}
+        {% if performance and performance.trade_count %}<span class="performance-badge">{{ performance.trade_count }} backtested trades</span>{% endif %}
+        {% if performance and performance.win_rate is not none %}<span class="performance-badge">{{ performance.win_rate }}% historical win rate</span>{% endif %}
         <span class="performance-badge live">{{ signals|length }} open signal{{ '' if signals|length == 1 else 's' }}</span>
       </div>
     </header>
@@ -2862,6 +2863,7 @@ HOME_TEMPLATE = """
     </div>
     {% endif %}
 
+    {% if performance %}
     <div class="performance-kpis" aria-live="polite">
       <div class="performance-kpi">
         <span>AI Insider backtest</span>
@@ -2879,8 +2881,10 @@ HOME_TEMPLATE = """
         <small>Strategy minus benchmark</small>
       </div>
     </div>
+    {% endif %}
 
-    <div class="performance-chart-panel">
+    <div class="performance-chart-panel{% if not performance %} ledger-only{% endif %}">
+      {% if performance %}
       <div class="performance-chart-toolbar">
         <div class="performance-window-label">
           <span>Selected comparison window</span>
@@ -2911,6 +2915,7 @@ HOME_TEMPLATE = """
         <p class="performance-risk"><strong>Hypothetical backtest:</strong> this is not a live portfolio or a guarantee of future returns. Open signals are displayed separately and are not counted as realized performance. Trade at your own risk.</p>
         <p class="performance-asof">Comparable data<br>{{ performance.start_date }} &rarr; {{ performance.as_of }}</p>
       </div>
+      {% endif %}
 
       {% if ytd_ledger and ytd_ledger.events %}
       <section class="ytd-ledger" aria-labelledby="ytd-ledger-title">
@@ -2945,7 +2950,9 @@ HOME_TEMPLATE = """
       </section>
       {% endif %}
     </div>
+    {% if performance %}
     <script type="application/json" id="performance-data">{{ performance|tojson }}</script>
+    {% endif %}
   </article>
 </div></section>
 {% endif %}
