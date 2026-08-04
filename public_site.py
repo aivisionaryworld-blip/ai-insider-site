@@ -2277,9 +2277,10 @@ footer {
 .ytd-live-stat strong { display: block; margin-top: 4px; color: #c7d0d4; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 .performance-kpis {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border-bottom: 1px solid rgba(255,255,255,.075);
 }
+.performance-kpis.owner-only { grid-template-columns: minmax(0, 1fr); }
 .performance-kpi { padding: 19px 29px 18px; border-right: 1px solid rgba(255,255,255,.075); }
 .performance-kpi:last-child { border-right: 0; }
 .performance-kpi span { display: block; color: #6f7b84; font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: .085em; text-transform: uppercase; }
@@ -2287,6 +2288,8 @@ footer {
 .performance-kpi strong.pos { color: #63e8b2; }
 .performance-kpi strong.neg { color: #ff8278; }
 .performance-kpi small { display: block; margin-top: 4px; color: #67727a; font-size: 9px; }
+.performance-kpi.owner { background: linear-gradient(135deg, rgba(199,255,103,.085), rgba(0,236,159,.025)); }
+.performance-kpi.owner strong { color: #d7ff7d; text-shadow: 0 0 22px rgba(199,255,103,.16); }
 .performance-chart-panel { padding: 22px 29px 25px; }
 .performance-chart-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
 .performance-window-label span { display: block; color: #67727b; font-family: 'JetBrains Mono', monospace; font-size: 7.5px; letter-spacing: .08em; text-transform: uppercase; }
@@ -2333,6 +2336,7 @@ footer {
 .performance-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .performance-legend i { width: 20px; height: 2px; border-radius: 99px; background: #00ec9f; box-shadow: 0 0 8px rgba(0,236,159,.25); }
 .performance-legend .benchmark i { background: #4ba3ff; box-shadow: none; }
+.performance-legend .owner i { width: 8px; height: 8px; border-radius: 1px; background: #d7ff7d; box-shadow: 0 0 9px rgba(199,255,103,.42); transform: rotate(45deg); }
 .performance-foot {
   display: flex;
   align-items: flex-start;
@@ -2378,6 +2382,10 @@ footer {
 .ytd-trade-return.neg { color: #f1877e; }
 .ytd-ledger-note { padding: 12px 18px; border-top: 1px solid rgba(255,255,255,.055); color: #8e7971; font-size: 9px; line-height: 1.55; }
 .ytd-ledger-note strong { color: #dda087; }
+.performance-methodology { display: flex; align-items: flex-start; gap: 12px; margin-top: 17px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.065); }
+.performance-methodology-mark { flex: 0 0 8px; width: 8px; height: 8px; margin-top: 5px; border-radius: 1px; background: #d7ff7d; box-shadow: 0 0 9px rgba(199,255,103,.35); transform: rotate(45deg); }
+.performance-methodology p { margin: 0; color: #7c878e; font-size: 10px; line-height: 1.65; }
+.performance-methodology strong { color: #cfd7da; font-weight: 650; }
 .performance-chart-panel.ledger-only .ytd-ledger { margin-top: 0; }
 
 @media (max-width: 760px) {
@@ -2832,8 +2840,8 @@ HOME_TEMPLATE = """
     <header class="performance-head">
       <div class="performance-heading">
         <span class="eyebrow">Strategy dashboard</span>
-        <h2 id="performance-title">{% if performance %}AI Insider vs. the S&amp;P 500{% else %}2026 performance &amp; trade activity{% endif %}</h2>
-        <p>{% if performance %}A cash-flow-neutral backtest of the published signal rules compared with SPY adjusted-close performance. Every selected period is rebased to 0% for a fair like-for-like comparison.{% else %}The owner-reported YTD snapshot and public trade ledger remain available while comparison-chart data is being refreshed.{% endif %}</p>
+        <h2 id="performance-title">{% if performance %}Owner YTD, rules backtest &amp; S&amp;P 500{% else %}2026 performance &amp; trade activity{% endif %}</h2>
+        <p>{% if performance %}A single dashboard with each record labeled by what it actually measures.{% else %}The owner-reported YTD snapshot and public trade ledger remain available while comparison-chart data is being refreshed.{% endif %}</p>
       </div>
       <div class="performance-badges" aria-label="Performance dataset details">
         {% if performance and performance.trade_count %}<span class="performance-badge">{{ performance.trade_count }} backtested trades</span>{% endif %}
@@ -2842,33 +2850,19 @@ HOME_TEMPLATE = """
       </div>
     </header>
 
-    {% if ytd_snapshot and ytd_ledger %}
-    <div class="ytd-live-panel" aria-label="Owner-reported live YTD performance">
-      <div class="ytd-return-card">
-        <span class="ytd-return-label">Live account snapshot</span>
-        <strong class="ytd-return-value">{{ '+' if ytd_snapshot.ytd_return_pct >= 0 else '' }}{{ ytd_snapshot.ytd_return_pct }}%</strong>
-        <span class="ytd-return-period">{{ ytd_snapshot.return_label }}</span>
-        <span class="ytd-return-asof">As of {{ ytd_snapshot.as_of }}</span>
-      </div>
-      <div class="ytd-live-detail">
-        <h3>2026 account result and trade activity</h3>
-        <p>{{ ytd_snapshot.methodology_note }} It is shown separately from the daily backtest chart so the two records are never presented as the same dataset.</p>
-        <div class="ytd-live-stats" aria-label="YTD trade activity statistics">
-          <div class="ytd-live-stat"><span>Closed events</span><strong data-ytd-closed-count>{{ ytd_ledger.closed_count }}</strong></div>
-          <div class="ytd-live-stat"><span>Closed win rate</span><strong>{{ ytd_ledger.win_rate }}%</strong></div>
-          <div class="ytd-live-stat"><span>Avg. closed trade</span><strong>{% if ytd_ledger.average_closed_return is not none %}{{ '+' if ytd_ledger.average_closed_return >= 0 else '' }}{{ ytd_ledger.average_closed_return }}%{% else %}&mdash;{% endif %}</strong></div>
-          <div class="ytd-live-stat"><span>Open bot signals</span><strong data-ytd-open-count>{{ ytd_ledger.open_count }}</strong></div>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
     {% if performance %}
     <div class="performance-kpis" aria-live="polite">
+      {% if ytd_snapshot %}
+      <div class="performance-kpi owner">
+        <span>Owner account YTD</span>
+        <strong>{{ '+' if ytd_snapshot.ytd_return_pct >= 0 else '' }}{{ ytd_snapshot.ytd_return_pct }}%</strong>
+        <small>Owner-reported &middot; as of {{ ytd_snapshot.as_of }}</small>
+      </div>
+      {% endif %}
       <div class="performance-kpi">
-        <span>AI Insider backtest</span>
+        <span>Rules backtest</span>
         <strong data-strategy-return>&mdash;</strong>
-        <small>Time-weighted signal return</small>
+        <small>Hypothetical time-weighted return</small>
       </div>
       <div class="performance-kpi">
         <span>S&amp;P 500</span>
@@ -2876,9 +2870,17 @@ HOME_TEMPLATE = """
         <small>SPY adjusted-close proxy</small>
       </div>
       <div class="performance-kpi">
-        <span>Excess return</span>
+        <span>Backtest excess</span>
         <strong data-alpha-return>&mdash;</strong>
-        <small>Strategy minus benchmark</small>
+        <small>Rules backtest minus benchmark</small>
+      </div>
+    </div>
+    {% elif ytd_snapshot %}
+    <div class="performance-kpis owner-only">
+      <div class="performance-kpi owner">
+        <span>Owner account YTD</span>
+        <strong>{{ '+' if ytd_snapshot.ytd_return_pct >= 0 else '' }}{{ ytd_snapshot.ytd_return_pct }}%</strong>
+        <small>Owner-reported &middot; as of {{ ytd_snapshot.as_of }}</small>
       </div>
     </div>
     {% endif %}
@@ -2900,19 +2902,20 @@ HOME_TEMPLATE = """
         </div>
       </div>
       <div class="performance-plot">
-        <canvas class="performance-canvas" data-performance-canvas role="img" aria-label="AI Insider backtest compared with the S&P 500"></canvas>
+        <canvas class="performance-canvas" data-performance-canvas role="img" aria-label="Owner-reported 85 percent YTD snapshot with the rules backtest and S&P 500 comparison"></canvas>
         <div class="performance-tooltip" data-performance-tooltip>
           <time data-tooltip-date></time>
-          <div><span>AI Insider</span><strong class="strategy-value" data-tooltip-strategy></strong></div>
+          <div><span>Rules backtest</span><strong class="strategy-value" data-tooltip-strategy></strong></div>
           <div><span>S&amp;P 500</span><strong class="benchmark-value" data-tooltip-benchmark></strong></div>
         </div>
       </div>
       <div class="performance-legend" aria-hidden="true">
-        <span><i></i>AI Insider backtest</span>
+        {% if ytd_snapshot %}<span class="owner"><i></i>Owner-reported YTD snapshot</span>{% endif %}
+        <span><i></i>Rules backtest</span>
         <span class="benchmark"><i></i>S&amp;P 500 (SPY)</span>
       </div>
       <div class="performance-foot">
-        <p class="performance-risk"><strong>Hypothetical backtest:</strong> this is not a live portfolio or a guarantee of future returns. Open signals are displayed separately and are not counted as realized performance. Trade at your own risk.</p>
+        <p class="performance-risk"><strong>Hypothetical rules backtest:</strong> this line is not the owner account and is not a guarantee of future returns.</p>
         <p class="performance-asof">Comparable data<br>{{ performance.start_date }} &rarr; {{ performance.as_of }}</p>
       </div>
       {% endif %}
@@ -2948,6 +2951,13 @@ HOME_TEMPLATE = """
         </div>
         <p class="ytd-ledger-note"><strong>Important:</strong> bot signals are research alerts, not proof that a trade was executed. Open signals do not change the closed-performance figures. Not financial advice. Trade at your own risk.</p>
       </section>
+      {% endif %}
+
+      {% if ytd_snapshot %}
+      <div class="performance-methodology" id="performance-methodology">
+        <span class="performance-methodology-mark" aria-hidden="true"></span>
+        <p><strong>How to read the chart:</strong> the {{ ytd_snapshot.ytd_return_pct }}% owner-account result is a point-in-time YTD figure supplied by the owner as of {{ ytd_snapshot.as_of }}. It is plotted as one diamond because the export does not include a daily equity curve. The green line is the separate hypothetical rules backtest; the blue line is SPY. A continuous owner-account line will be added when daily account-value history is available.</p>
+      </div>
       {% endif %}
     </div>
     {% if performance %}
@@ -3339,6 +3349,12 @@ HOME_TEMPLATE = """
     benchmark: Number(point[2])
   })).filter(row => Number.isFinite(row.strategy) && Number.isFinite(row.benchmark));
   if (allRows.length < 2) return;
+  const ownerSnapshotRaw = payload.owner_snapshot || {};
+  const ownerSnapshotDate = new Date(String(ownerSnapshotRaw.as_of || '') + 'T00:00:00Z');
+  const ownerSnapshotReturn = Number(ownerSnapshotRaw.return_pct);
+  const ownerSnapshot = Number.isFinite(ownerSnapshotDate.getTime()) && Number.isFinite(ownerSnapshotReturn)
+    ? { date: ownerSnapshotDate, dateLabel: String(ownerSnapshotRaw.as_of), returnPct: ownerSnapshotReturn }
+    : null;
 
   const ctx = canvas.getContext('2d');
   const tooltip = document.querySelector('[data-performance-tooltip]');
@@ -3433,12 +3449,19 @@ HOME_TEMPLATE = """
     const plotWidth = width - padding.left - padding.right;
     const plotHeight = height - padding.top - padding.bottom;
     const values = visibleRows.flatMap(row => [row.strategyReturn, row.benchmarkReturn]);
+    const snapshotVisible = activeRange === 'YTD' && ownerSnapshot;
+    if (snapshotVisible) values.push(ownerSnapshot.returnPct);
     let minValue = Math.min(0, ...values);
     let maxValue = Math.max(0, ...values);
     const spread = Math.max(1, maxValue - minValue);
     minValue -= spread * .12;
     maxValue += spread * .12;
-    const xFor = index => padding.left + (visibleRows.length === 1 ? 0 : index / (visibleRows.length - 1)) * plotWidth;
+    const startTime = visibleRows[0].date.getTime();
+    const dataEndTime = visibleRows[visibleRows.length - 1].date.getTime();
+    const endTime = snapshotVisible ? Math.max(dataEndTime, ownerSnapshot.date.getTime()) : dataEndTime;
+    const timeSpan = Math.max(1, endTime - startTime);
+    const xForDate = date => padding.left + (date.getTime() - startTime) / timeSpan * plotWidth;
+    const xFor = index => xForDate(visibleRows[index].date);
     const yValue = value => padding.top + (maxValue - value) / (maxValue - minValue) * plotHeight;
     const strategyY = row => yValue(row.strategyReturn);
     const benchmarkY = row => yValue(row.benchmarkReturn);
@@ -3481,16 +3504,51 @@ HOME_TEMPLATE = """
     drawSeries(visibleRows, xFor, benchmarkY, '#4ba3ff', 1.7, [5, 4]);
     drawSeries(visibleRows, xFor, strategyY, '#00ec9f', 2.2);
 
-    const labelIndexes = [0, Math.floor((visibleRows.length - 1) / 2), visibleRows.length - 1];
+    const labelIndexes = snapshotVisible
+      ? [0, Math.floor((visibleRows.length - 1) / 2)]
+      : [0, Math.floor((visibleRows.length - 1) / 2), visibleRows.length - 1];
     ctx.save();
     ctx.font = "8px 'JetBrains Mono', monospace";
     ctx.fillStyle = '#647078';
     ctx.textBaseline = 'bottom';
     labelIndexes.forEach((index, position) => {
-      ctx.textAlign = position === 0 ? 'left' : position === 2 ? 'right' : 'center';
+      ctx.textAlign = position === 0 ? 'left' : (!snapshotVisible && position === 2 ? 'right' : 'center');
       ctx.fillText(visibleRows[index].dateLabel, xFor(index), height - 8);
     });
+    if (snapshotVisible) {
+      ctx.textAlign = 'right';
+      ctx.fillText(ownerSnapshot.dateLabel, xForDate(ownerSnapshot.date), height - 8);
+    }
     ctx.restore();
+
+    if (snapshotVisible) {
+      const snapshotX = xForDate(ownerSnapshot.date);
+      const snapshotY = yValue(ownerSnapshot.returnPct);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(padding.left, snapshotY);
+      ctx.lineTo(snapshotX, snapshotY);
+      ctx.strokeStyle = 'rgba(215, 255, 125, .22)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.translate(snapshotX, snapshotY);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = '#d7ff7d';
+      ctx.shadowColor = 'rgba(199, 255, 103, .5)';
+      ctx.shadowBlur = 12;
+      ctx.fillRect(-5, -5, 10, 10);
+      ctx.restore();
+
+      ctx.save();
+      ctx.font = "600 10px 'JetBrains Mono', monospace";
+      ctx.fillStyle = '#d7ff7d';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`Owner ${signedPercent(ownerSnapshot.returnPct)}`, snapshotX - 10, Math.max(14, snapshotY - 8));
+      ctx.restore();
+    }
 
     if (hoverIndex !== null && visibleRows[hoverIndex]) {
       const row = visibleRows[hoverIndex];
@@ -3524,8 +3582,12 @@ HOME_TEMPLATE = """
     paintMetric(strategyMetric, strategyReturn);
     paintMetric(benchmarkMetric, benchmarkReturn);
     paintMetric(alphaMetric, strategyReturn - benchmarkReturn);
-    windowLabel.textContent = `${rangeNames[range]} · ${visibleRows[0].dateLabel} to ${latest.dateLabel}`;
-    canvas.setAttribute('aria-label', `For ${rangeNames[range]}, the AI Insider backtest returned ${signedPercent(strategyReturn)} compared with ${signedPercent(benchmarkReturn)} for the S&P 500.`);
+    const rangeEndLabel = range === 'YTD' && ownerSnapshot ? ownerSnapshot.dateLabel : latest.dateLabel;
+    windowLabel.textContent = `${rangeNames[range]} · ${visibleRows[0].dateLabel} to ${rangeEndLabel}`;
+    const ownerSummary = range === 'YTD' && ownerSnapshot
+      ? ` The owner-reported account snapshot was ${signedPercent(ownerSnapshot.returnPct)} as of ${ownerSnapshot.dateLabel}.`
+      : '';
+    canvas.setAttribute('aria-label', `For ${rangeNames[range]}, the rules backtest returned ${signedPercent(strategyReturn)} compared with ${signedPercent(benchmarkReturn)} for the S&P 500.${ownerSummary}`);
     buttons.forEach(button => {
       const active = button.dataset.range === range;
       button.classList.toggle('active', active);
@@ -3540,14 +3602,24 @@ HOME_TEMPLATE = """
     const leftPadding = rect.width < 520 ? 48 : 58;
     const plotWidth = rect.width - leftPadding - 17;
     const localX = Math.max(0, Math.min(plotWidth, event.clientX - rect.left - leftPadding));
-    hoverIndex = Math.round((localX / Math.max(1, plotWidth)) * (visibleRows.length - 1));
+    const startTime = visibleRows[0].date.getTime();
+    const dataEndTime = visibleRows[visibleRows.length - 1].date.getTime();
+    const endTime = activeRange === 'YTD' && ownerSnapshot
+      ? Math.max(dataEndTime, ownerSnapshot.date.getTime())
+      : dataEndTime;
+    const hoveredTime = startTime + (localX / Math.max(1, plotWidth)) * Math.max(1, endTime - startTime);
+    hoverIndex = visibleRows.reduce((bestIndex, candidate, index) => (
+      Math.abs(candidate.date.getTime() - hoveredTime) < Math.abs(visibleRows[bestIndex].date.getTime() - hoveredTime)
+        ? index
+        : bestIndex
+    ), 0);
     const row = visibleRows[hoverIndex];
     if (!row) return;
     tooltipDate.textContent = dateFormatter.format(row.date);
     tooltipStrategy.textContent = signedPercent(row.strategyReturn);
     tooltipBenchmark.textContent = signedPercent(row.benchmarkReturn);
     const tooltipWidth = 184;
-    const preferredLeft = leftPadding + (hoverIndex / Math.max(1, visibleRows.length - 1)) * plotWidth + 12;
+    const preferredLeft = leftPadding + (row.date.getTime() - startTime) / Math.max(1, endTime - startTime) * plotWidth + 12;
     tooltip.style.left = `${Math.min(rect.width - tooltipWidth - 10, Math.max(10, preferredLeft))}px`;
     tooltip.style.top = '16px';
     tooltip.classList.add('show');
@@ -3576,13 +3648,23 @@ HOME_TEMPLATE = """
 @app.route("/")
 def home():
     ytd_snapshot = load_public_ytd_snapshot()
+    performance = load_performance_comparison()
+    if performance and ytd_snapshot:
+        performance = {
+            **performance,
+            "owner_snapshot": {
+                "as_of": ytd_snapshot["as_of"],
+                "return_pct": ytd_snapshot["ytd_return_pct"],
+                "label": ytd_snapshot["return_label"],
+            },
+        }
     return render_template_string(
         HOME_TEMPLATE,
         signals=load_public_signals(),
         examples=load_resolved_examples(),
         filings=load_filings_table(),
         trust_stats=load_trust_stats(),
-        performance=load_performance_comparison(),
+        performance=performance,
         ytd_snapshot=ytd_snapshot,
         ytd_ledger=load_ytd_trade_ledger(ytd_snapshot),
     )
