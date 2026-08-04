@@ -1,0 +1,46 @@
+{
+  "year": 2026,
+  "activity_as_of": "2026-08-01",
+  "events": [
+    {
+      "date": "2026-08-01",
+      "ticker": "IONS",
+      "rating": "B",
+      "status": "OPEN SIGNAL",
+      "return_pct": null,
+      "source": "AI_INSIDER_BOT"
+    },
+    {
+      "date": "2026-08-01",
+      "ticker": "DBD",
+      "rating": "B",
+      "status": "OPEN SIGNAL",
+      "return_pct": null,
+      "source": "AI_INSIDER_BOT"
+    },
+    {
+      "date": "2026-07-31",
+      "ticker": "HOG",
+      "rating": "B",
+      "status": "OPEN SIGNAL",
+      "return_pct": null,
+      "source": "AI_INSIDER_BOT"
+    },
+    {
+      "date": "2026-07-31",
+      "ticker": "DBD",
+      "rating": "A",
+      "status": "OPEN SIGNAL",
+      "return_pct": null,
+      "source": "AI_INSIDER_BOT"
+    },
+    {
+      "date": "2026-07-30",
+      "ticker": "HNVR",
+      "rating": "B",
+      "status": "OPEN SIGNAL",
+      "return_pct": null,
+      "source": "AI_INSIDER_BOT"
+    }
+  ]
+}
