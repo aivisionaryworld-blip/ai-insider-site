@@ -53,6 +53,7 @@ PUBLIC_CURRENT_SIGNALS = os.path.join(BASE_DIR, "public_signals_current.csv")
 PUBLIC_SIGNAL_HISTORY = os.path.join(BASE_DIR, "public_signal_history.csv")
 PUBLIC_SIGNAL_OUTCOMES = os.path.join(BASE_DIR, "public_signal_outcomes.csv")
 PUBLIC_YTD_PERFORMANCE = os.path.join(BASE_DIR, "public_ytd_performance.json")
+SYNCED_BOT_TRADE_LEDGER = os.path.join(BASE_DIR, "synced_bot_trade_ledger.json")
 LEGACY_CURRENT_SIGNALS = os.path.join(BASE_DIR, "v23_t212_aggressive_alloc_confirmed_basket_executable.csv")
 
 
@@ -392,6 +393,38 @@ def _load_public_signal_outcomes():
     return result
 
 
+def _load_synced_bot_trade_events(year):
+    """Load the stable, public-only bot ledger synchronized by GitHub Actions."""
+    if not os.path.exists(SYNCED_BOT_TRADE_LEDGER):
+        return []
+    try:
+        with open(SYNCED_BOT_TRADE_LEDGER, "r", encoding="utf-8") as source:
+            raw = json.load(source)
+    except (OSError, ValueError, TypeError):
+        return []
+    result = []
+    for raw_event in raw.get("events", []):
+        if not isinstance(raw_event, dict):
+            continue
+        date = _normalized_public_date(raw_event.get("date"))
+        ticker = str(raw_event.get("ticker") or "").strip().upper()[:12]
+        rating = str(raw_event.get("rating") or "").strip().upper()[:4]
+        status = str(raw_event.get("status") or "OPEN SIGNAL").strip().upper()
+        if not date.startswith(f"{year}-") or not ticker or status not in {"OPEN SIGNAL", "WIN", "LOSS"}:
+            continue
+        result.append({
+            "key": f"bot|{date}|{ticker}",
+            "date": date,
+            "ticker": ticker,
+            "rating": rating,
+            "status": status,
+            "return_pct": _finite_number(raw_event.get("return_pct")) if status != "OPEN SIGNAL" else None,
+            "source": "AI_INSIDER_BOT",
+            "source_label": "AI Insider bot",
+        })
+    return result
+
+
 def load_ytd_trade_ledger(snapshot=None):
     """Combine percentage-only account closes with current public bot signals."""
     snapshot = snapshot or load_public_ytd_snapshot()
@@ -410,7 +443,7 @@ def load_ytd_trade_ledger(snapshot=None):
             pass
     signal_rows.extend(load_public_signals())
 
-    seen_bot_keys = set()
+    bot_events = {}
     for row in signal_rows:
         date = _normalized_public_date(
             row.get("signal_date") or row.get("trade_date") or row.get("transaction_date") or row.get("date")
@@ -419,12 +452,11 @@ def load_ytd_trade_ledger(snapshot=None):
         if not date or not ticker or not date.startswith(f"{year}-"):
             continue
         key = f"bot|{date}|{ticker}"
-        if key in seen_bot_keys:
+        if key in bot_events:
             continue
-        seen_bot_keys.add(key)
         outcome = outcomes.get((date, ticker), {"status": "OPEN SIGNAL", "return_pct": None})
         rating = str(row.get("rating") or "").strip().upper()[:4]
-        events.append({
+        bot_events[key] = {
             "key": key,
             "date": date,
             "ticker": ticker,
@@ -433,7 +465,13 @@ def load_ytd_trade_ledger(snapshot=None):
             "return_pct": outcome["return_pct"],
             "source": "AI_INSIDER_BOT",
             "source_label": "AI Insider bot",
-        })
+        }
+
+    # The synchronized file is newer than Render's bundled CSVs, so it wins
+    # when both sources contain the same signal and an outcome has changed.
+    for synced_event in _load_synced_bot_trade_events(year):
+        bot_events[synced_event["key"]] = synced_event
+    events.extend(bot_events.values())
 
     events.sort(key=lambda item: (item["date"], item["source"], item["ticker"]), reverse=True)
     closed = [event for event in events if event["status"] in {"WIN", "LOSS"}]
@@ -2741,6 +2779,36 @@ def api_signals():
         "generated_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
         "poll_after_seconds": 30,
     })
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return response
+
+
+@app.route("/api/ytd-ledger")
+def api_ytd_ledger():
+    """Public percentage-only ledger used to synchronize VPS data to Render."""
+    snapshot = load_public_ytd_snapshot()
+    ledger = load_ytd_trade_ledger(snapshot)
+    if not snapshot or not ledger:
+        response = jsonify({"year": None, "activity_as_of": None, "events": []})
+        response.status_code = 503
+    else:
+        bot_events = [
+            {
+                "date": event["date"],
+                "ticker": event["ticker"],
+                "rating": event["rating"],
+                "status": event["status"],
+                "return_pct": event["return_pct"],
+                "source": "AI_INSIDER_BOT",
+            }
+            for event in ledger["events"]
+            if event["source"] == "AI_INSIDER_BOT"
+        ]
+        response = jsonify({
+            "year": snapshot["year"],
+            "activity_as_of": ledger["activity_as_of"],
+            "events": bot_events,
+        })
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     return response
 

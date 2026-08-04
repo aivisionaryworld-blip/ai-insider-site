@@ -1,0 +1,91 @@
+name: Sync public bot ledger
+
+on:
+  schedule:
+    - cron: "17 */8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-public-bot-ledger
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download and validate the public-only ledger
+        env:
+          LEDGER_URL: ${{ secrets.PUBLIC_LEDGER_URL }}
+        run: |
+          test -n "$LEDGER_URL"
+          curl --fail --silent --show-error --retry 3 --max-time 30 "$LEDGER_URL" -o ledger-download.json
+          python - <<'PY'
+          import json
+          import re
+
+          with open("ledger-download.json", encoding="utf-8") as source:
+              raw = json.load(source)
+
+          year = int(raw["year"])
+          activity_as_of = str(raw["activity_as_of"])
+          if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", activity_as_of):
+              raise ValueError("Invalid activity_as_of date")
+
+          allowed = {"date", "ticker", "rating", "status", "return_pct", "source"}
+          events = []
+          for event in raw.get("events", []):
+              if set(event) - allowed:
+                  raise ValueError("Unexpected public ledger fields")
+              date = str(event.get("date", ""))
+              ticker = str(event.get("ticker", "")).upper()
+              rating = str(event.get("rating", "")).upper()
+              status = str(event.get("status", "")).upper()
+              return_pct = event.get("return_pct")
+              if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+                  raise ValueError("Invalid event date")
+              if not re.fullmatch(r"[A-Z0-9.\-]{1,12}", ticker):
+                  raise ValueError("Invalid ticker")
+              if status not in {"OPEN SIGNAL", "WIN", "LOSS"}:
+                  raise ValueError("Invalid status")
+              if return_pct is not None and not isinstance(return_pct, (int, float)):
+                  raise ValueError("Invalid percentage return")
+              if event.get("source") != "AI_INSIDER_BOT":
+                  raise ValueError("Invalid source")
+              events.append({
+                  "date": date,
+                  "ticker": ticker,
+                  "rating": rating[:4],
+                  "status": status,
+                  "return_pct": return_pct,
+                  "source": "AI_INSIDER_BOT",
+              })
+
+          if len(events) > 1000:
+              raise ValueError("Unexpected ledger size")
+          events.sort(key=lambda item: (item["date"], item["ticker"]), reverse=True)
+          stable = {"year": year, "activity_as_of": activity_as_of, "events": events}
+          with open("synced_bot_trade_ledger.json", "w", encoding="utf-8") as target:
+              json.dump(stable, target, indent=2)
+              target.write("\n")
+          PY
+          rm -f ledger-download.json
+
+      - name: Publish only when the public ledger changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- synced_bot_trade_ledger.json
+          if git diff --cached --quiet; then
+            echo "Public ledger is already current."
+            exit 0
+          fi
+          git commit -m "Sync public bot trade ledger"
+          git push origin HEAD:main
