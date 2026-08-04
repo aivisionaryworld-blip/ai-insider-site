@@ -39,7 +39,10 @@ jobs:
           if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", activity_as_of):
               raise ValueError("Invalid activity_as_of date")
 
-          allowed = {"date", "ticker", "rating", "status", "return_pct", "source"}
+          allowed = {
+              "date", "ticker", "rating", "status", "return_pct",
+              "model_allocation_pct", "resolved_date", "source",
+          }
           events = []
           for event in raw.get("events", []):
               if set(event) - allowed:
@@ -49,6 +52,8 @@ jobs:
               rating = str(event.get("rating", "")).upper()
               status = str(event.get("status", "")).upper()
               return_pct = event.get("return_pct")
+              allocation_pct = event.get("model_allocation_pct")
+              resolved_date = event.get("resolved_date")
               if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
                   raise ValueError("Invalid event date")
               if not re.fullmatch(r"[A-Z0-9.\-]{1,12}", ticker):
@@ -57,6 +62,12 @@ jobs:
                   raise ValueError("Invalid status")
               if return_pct is not None and not isinstance(return_pct, (int, float)):
                   raise ValueError("Invalid percentage return")
+              if allocation_pct is not None and (
+                  not isinstance(allocation_pct, (int, float)) or not 0 <= allocation_pct <= 100
+              ):
+                  raise ValueError("Invalid model allocation percentage")
+              if resolved_date is not None and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(resolved_date)):
+                  raise ValueError("Invalid resolved date")
               if event.get("source") != "AI_INSIDER_BOT":
                   raise ValueError("Invalid source")
               events.append({
@@ -65,6 +76,8 @@ jobs:
                   "rating": rating[:4],
                   "status": status,
                   "return_pct": return_pct,
+                  "model_allocation_pct": allocation_pct,
+                  "resolved_date": resolved_date,
                   "source": "AI_INSIDER_BOT",
               })
 
