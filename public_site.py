@@ -299,6 +299,14 @@ def _finite_number(value, digits=2):
     return round(number, digits)
 
 
+def _public_allocation_pct(value):
+    """Return a public model-allocation percentage without exposing dollars."""
+    number = _finite_number(value)
+    if number is None or number < 0 or number > 100:
+        return None
+    return number
+
+
 def _normalized_public_date(value):
     """Normalize dates used by the public ledger to YYYY-MM-DD."""
     if value is None:
@@ -389,6 +397,7 @@ def _load_public_signal_outcomes():
         result[(date, ticker)] = {
             "status": "OPEN SIGNAL" if status == "OPEN" else status,
             "return_pct": _finite_number(row.get("pnl_pct")) if status != "OPEN" else None,
+            "resolved_date": _normalized_public_date(row.get("resolved_date")) if status != "OPEN" else "",
         }
     return result
 
@@ -419,6 +428,8 @@ def _load_synced_bot_trade_events(year):
             "rating": rating,
             "status": status,
             "return_pct": _finite_number(raw_event.get("return_pct")) if status != "OPEN SIGNAL" else None,
+            "model_allocation_pct": _public_allocation_pct(raw_event.get("model_allocation_pct")),
+            "resolved_date": _normalized_public_date(raw_event.get("resolved_date")) if status != "OPEN SIGNAL" else "",
             "source": "AI_INSIDER_BOT",
             "source_label": "AI Insider bot",
         })
@@ -454,7 +465,10 @@ def load_ytd_trade_ledger(snapshot=None):
         key = f"bot|{date}|{ticker}"
         if key in bot_events:
             continue
-        outcome = outcomes.get((date, ticker), {"status": "OPEN SIGNAL", "return_pct": None})
+        outcome = outcomes.get(
+            (date, ticker),
+            {"status": "OPEN SIGNAL", "return_pct": None, "resolved_date": ""},
+        )
         rating = str(row.get("rating") or "").strip().upper()[:4]
         bot_events[key] = {
             "key": key,
@@ -463,6 +477,8 @@ def load_ytd_trade_ledger(snapshot=None):
             "rating": rating,
             "status": outcome["status"],
             "return_pct": outcome["return_pct"],
+            "model_allocation_pct": _public_allocation_pct(row.get("model_allocation_pct")),
+            "resolved_date": outcome.get("resolved_date", ""),
             "source": "AI_INSIDER_BOT",
             "source_label": "AI Insider bot",
         }
@@ -470,7 +486,17 @@ def load_ytd_trade_ledger(snapshot=None):
     # The synchronized file is newer than Render's bundled CSVs, so it wins
     # when both sources contain the same signal and an outcome has changed.
     for synced_event in _load_synced_bot_trade_events(year):
-        bot_events[synced_event["key"]] = synced_event
+        local_event = bot_events.get(synced_event["key"], {})
+        bot_events[synced_event["key"]] = {
+            **local_event,
+            **synced_event,
+            "model_allocation_pct": (
+                synced_event["model_allocation_pct"]
+                if synced_event["model_allocation_pct"] is not None
+                else local_event.get("model_allocation_pct")
+            ),
+            "resolved_date": synced_event["resolved_date"] or local_event.get("resolved_date", ""),
+        }
     events.extend(bot_events.values())
 
     events.sort(key=lambda item: (item["date"], item["source"], item["ticker"]), reverse=True)
@@ -478,7 +504,10 @@ def load_ytd_trade_ledger(snapshot=None):
     wins = sum(event["status"] == "WIN" for event in closed)
     open_count = sum(event["status"] == "OPEN SIGNAL" for event in events)
     closed_returns = [event["return_pct"] for event in closed if event["return_pct"] is not None]
-    latest_date = max((event["date"] for event in events), default=snapshot["as_of"])
+    latest_date = max(
+        (event.get("resolved_date") or event["date"] for event in events),
+        default=snapshot["as_of"],
+    )
     return {
         "events": events,
         "activity_as_of": max(snapshot["as_of"], latest_date),
@@ -489,6 +518,56 @@ def load_ytd_trade_ledger(snapshot=None):
         "win_rate": round(wins / len(closed) * 100, 1) if closed else None,
         "average_closed_return": round(sum(closed_returns) / len(closed_returns), 2) if closed_returns else None,
     }
+
+
+def build_owner_portfolio_continuation(snapshot, ledger):
+    """Continue an owner-reported YTD baseline with resolved public bot signals.
+
+    This is a percentage-only model continuation, not a brokerage balance feed.
+    Open signals are chart markers and have no performance impact. A resolved
+    signal changes the curve by its published allocation multiplied by its
+    percentage return.
+    """
+    if not snapshot or not ledger:
+        return []
+    baseline_date = snapshot["as_of"]
+    baseline_return = float(snapshot["ytd_return_pct"])
+    baseline_growth = 1.0 + baseline_return / 100.0
+    continuation_growth = 1.0
+    points = [{
+        "date": baseline_date,
+        "return_pct": round(baseline_return, 2),
+        "ticker": "",
+        "status": "BASELINE",
+        "allocation_pct": None,
+        "signal_return_pct": None,
+    }]
+
+    bot_events = [
+        event for event in ledger["events"]
+        if event.get("source") == "AI_INSIDER_BOT" and event.get("date", "") >= baseline_date
+    ]
+    bot_events.sort(key=lambda event: (
+        event.get("resolved_date") or event.get("date") or "",
+        event.get("date") or "",
+        event.get("ticker") or "",
+    ))
+    for event in bot_events:
+        status = event.get("status")
+        allocation = _public_allocation_pct(event.get("model_allocation_pct"))
+        signal_return = _finite_number(event.get("return_pct"))
+        if status in {"WIN", "LOSS"} and allocation is not None and signal_return is not None:
+            continuation_growth *= max(0.0, 1.0 + (allocation / 100.0) * (signal_return / 100.0))
+        continuation_return = (baseline_growth * continuation_growth - 1.0) * 100.0
+        points.append({
+            "date": event.get("resolved_date") or event["date"],
+            "return_pct": round(continuation_return, 2),
+            "ticker": event["ticker"],
+            "status": status,
+            "allocation_pct": allocation,
+            "signal_return_pct": signal_return,
+        })
+    return points
 
 
 @lru_cache(maxsize=4)
@@ -2336,7 +2415,7 @@ footer {
 .performance-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .performance-legend i { width: 20px; height: 2px; border-radius: 99px; background: #00ec9f; box-shadow: 0 0 8px rgba(0,236,159,.25); }
 .performance-legend .benchmark i { background: #4ba3ff; box-shadow: none; }
-.performance-legend .owner i { width: 8px; height: 8px; border-radius: 1px; background: #d7ff7d; box-shadow: 0 0 9px rgba(199,255,103,.42); transform: rotate(45deg); }
+.performance-legend .owner i { background: #d7ff7d; box-shadow: 0 0 9px rgba(199,255,103,.42); }
 .performance-foot {
   display: flex;
   align-items: flex-start;
@@ -2808,6 +2887,8 @@ def api_ytd_ledger():
                 "rating": event["rating"],
                 "status": event["status"],
                 "return_pct": event["return_pct"],
+                "model_allocation_pct": event.get("model_allocation_pct"),
+                "resolved_date": event.get("resolved_date") or None,
                 "source": "AI_INSIDER_BOT",
             }
             for event in ledger["events"]
@@ -2854,9 +2935,9 @@ HOME_TEMPLATE = """
     <div class="performance-kpis" aria-live="polite">
       {% if ytd_snapshot %}
       <div class="performance-kpi owner">
-        <span>Owner account YTD</span>
-        <strong>{{ '+' if ytd_snapshot.ytd_return_pct >= 0 else '' }}{{ ytd_snapshot.ytd_return_pct }}%</strong>
-        <small>Owner-reported &middot; as of {{ ytd_snapshot.as_of }}</small>
+        <span>Owner baseline + bot continuation</span>
+        <strong data-owner-return>{{ '+' if ytd_snapshot.ytd_return_pct >= 0 else '' }}{{ ytd_snapshot.ytd_return_pct }}%</strong>
+        <small>{{ '+' if ytd_snapshot.ytd_return_pct >= 0 else '' }}{{ ytd_snapshot.ytd_return_pct }}% owner baseline &middot; resolved signals update it</small>
       </div>
       {% endif %}
       <div class="performance-kpi">
@@ -2901,7 +2982,7 @@ HOME_TEMPLATE = """
         </div>
       </div>
       <div class="performance-plot">
-        <canvas class="performance-canvas" data-performance-canvas role="img" aria-label="Owner-reported 85 percent YTD snapshot with the rules backtest and S&P 500 comparison"></canvas>
+        <canvas class="performance-canvas" data-performance-canvas role="img" aria-label="Owner-reported 85 percent YTD baseline continued by resolved bot signals, with the rules backtest and S&P 500 comparison"></canvas>
         <div class="performance-tooltip" data-performance-tooltip>
           <time data-tooltip-date></time>
           <div><span>Rules backtest</span><strong class="strategy-value" data-tooltip-strategy></strong></div>
@@ -2909,7 +2990,7 @@ HOME_TEMPLATE = """
         </div>
       </div>
       <div class="performance-legend" aria-hidden="true">
-        {% if ytd_snapshot %}<span class="owner"><i></i>Owner-reported YTD snapshot</span>{% endif %}
+        {% if ytd_snapshot %}<span class="owner"><i></i>Owner baseline + bot continuation</span>{% endif %}
         <span><i></i>Rules backtest</span>
         <span class="benchmark"><i></i>S&amp;P 500 (SPY)</span>
       </div>
@@ -2955,7 +3036,7 @@ HOME_TEMPLATE = """
       {% if ytd_snapshot %}
       <div class="performance-methodology" id="performance-methodology">
         <span class="performance-methodology-mark" aria-hidden="true"></span>
-        <p><strong>How to read the chart:</strong> the {{ ytd_snapshot.ytd_return_pct }}% owner-account result is a point-in-time YTD figure supplied by the owner as of {{ ytd_snapshot.as_of }}. It is plotted as one diamond because the export does not include a daily equity curve. The green line is the separate hypothetical rules backtest; the blue line is SPY. A continuous owner-account line will be added when daily account-value history is available.</p>
+        <p><strong>How to read the chart:</strong> the line begins at the {{ ytd_snapshot.ytd_return_pct }}% owner-reported YTD baseline on {{ ytd_snapshot.as_of }}. New bot signals are added as markers. Open signals do not change performance; after a signal resolves, its published model-allocation percentage multiplied by its percentage gain or loss updates the continuation. Signals without a published allocation remain markers only. This percentage-only continuation is not a live brokerage balance. The green line is the separate hypothetical rules backtest; the blue line is SPY. Not financial advice. Trade at your own risk.</p>
       </div>
       {% endif %}
     </div>
@@ -3354,6 +3435,16 @@ HOME_TEMPLATE = """
   const ownerSnapshot = Number.isFinite(ownerSnapshotDate.getTime()) && Number.isFinite(ownerSnapshotReturn)
     ? { date: ownerSnapshotDate, dateLabel: String(ownerSnapshotRaw.as_of), returnPct: ownerSnapshotReturn }
     : null;
+  const ownerCurve = (payload.owner_curve || []).map(point => ({
+    date: new Date(String(point.date || '') + 'T00:00:00Z'),
+    dateLabel: String(point.date || ''),
+    returnPct: Number(point.return_pct),
+    ticker: String(point.ticker || ''),
+    status: String(point.status || ''),
+    allocationPct: point.allocation_pct === null || point.allocation_pct === undefined ? null : Number(point.allocation_pct),
+    signalReturnPct: point.signal_return_pct === null || point.signal_return_pct === undefined ? null : Number(point.signal_return_pct)
+  })).filter(point => Number.isFinite(point.date.getTime()) && Number.isFinite(point.returnPct));
+  const ownerLatest = ownerCurve.length ? ownerCurve[ownerCurve.length - 1] : ownerSnapshot;
 
   const ctx = canvas.getContext('2d');
   const tooltip = document.querySelector('[data-performance-tooltip]');
@@ -3363,6 +3454,7 @@ HOME_TEMPLATE = """
   const strategyMetric = document.querySelector('[data-strategy-return]');
   const benchmarkMetric = document.querySelector('[data-benchmark-return]');
   const alphaMetric = document.querySelector('[data-alpha-return]');
+  const ownerMetric = document.querySelector('[data-owner-return]');
   const windowLabel = document.querySelector('[data-performance-window]');
   const buttons = Array.from(document.querySelectorAll('[data-range]'));
   const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
@@ -3447,8 +3539,9 @@ HOME_TEMPLATE = """
     const plotWidth = width - padding.left - padding.right;
     const plotHeight = height - padding.top - padding.bottom;
     const values = visibleRows.flatMap(row => [row.strategyReturn, row.benchmarkReturn]);
-    const snapshotVisible = activeRange === 'YTD' && ownerSnapshot;
-    if (snapshotVisible) values.push(ownerSnapshot.returnPct);
+    const ownerVisible = activeRange === 'YTD' && ownerCurve.length;
+    if (ownerVisible) values.push(...ownerCurve.map(point => point.returnPct));
+    else if (activeRange === 'YTD' && ownerSnapshot) values.push(ownerSnapshot.returnPct);
     let minValue = Math.min(0, ...values);
     let maxValue = Math.max(0, ...values);
     const spread = Math.max(1, maxValue - minValue);
@@ -3456,7 +3549,8 @@ HOME_TEMPLATE = """
     maxValue += spread * .12;
     const startTime = visibleRows[0].date.getTime();
     const dataEndTime = visibleRows[visibleRows.length - 1].date.getTime();
-    const endTime = snapshotVisible ? Math.max(dataEndTime, ownerSnapshot.date.getTime()) : dataEndTime;
+    const ownerEndTime = ownerLatest ? ownerLatest.date.getTime() : dataEndTime;
+    const endTime = activeRange === 'YTD' ? Math.max(dataEndTime, ownerEndTime) : dataEndTime;
     const timeSpan = Math.max(1, endTime - startTime);
     const xForDate = date => padding.left + (date.getTime() - startTime) / timeSpan * plotWidth;
     const xFor = index => xForDate(visibleRows[index].date);
@@ -3502,7 +3596,7 @@ HOME_TEMPLATE = """
     drawSeries(visibleRows, xFor, benchmarkY, '#4ba3ff', 1.7, [5, 4]);
     drawSeries(visibleRows, xFor, strategyY, '#00ec9f', 2.2);
 
-    const labelIndexes = snapshotVisible
+    const labelIndexes = activeRange === 'YTD' && ownerLatest
       ? [0, Math.floor((visibleRows.length - 1) / 2)]
       : [0, Math.floor((visibleRows.length - 1) / 2), visibleRows.length - 1];
     ctx.save();
@@ -3510,41 +3604,73 @@ HOME_TEMPLATE = """
     ctx.fillStyle = '#647078';
     ctx.textBaseline = 'bottom';
     labelIndexes.forEach((index, position) => {
-      ctx.textAlign = position === 0 ? 'left' : (!snapshotVisible && position === 2 ? 'right' : 'center');
+      ctx.textAlign = position === 0 ? 'left' : (!(activeRange === 'YTD' && ownerLatest) && position === 2 ? 'right' : 'center');
       ctx.fillText(visibleRows[index].dateLabel, xFor(index), height - 8);
     });
-    if (snapshotVisible) {
+    if (activeRange === 'YTD' && ownerLatest) {
       ctx.textAlign = 'right';
-      ctx.fillText(ownerSnapshot.dateLabel, xForDate(ownerSnapshot.date), height - 8);
+      ctx.fillText(ownerLatest.dateLabel, xForDate(ownerLatest.date), height - 8);
     }
     ctx.restore();
 
-    if (snapshotVisible) {
-      const snapshotX = xForDate(ownerSnapshot.date);
-      const snapshotY = yValue(ownerSnapshot.returnPct);
+    if (ownerVisible) {
       ctx.save();
       ctx.beginPath();
-      ctx.moveTo(padding.left, snapshotY);
-      ctx.lineTo(snapshotX, snapshotY);
-      ctx.strokeStyle = 'rgba(215, 255, 125, .22)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
+      ownerCurve.forEach((point, index) => {
+        const x = xForDate(point.date);
+        const y = yValue(point.returnPct);
+        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = '#d7ff7d';
+      ctx.lineWidth = 2.4;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(199, 255, 103, .25)';
+      ctx.shadowBlur = 9;
       ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.translate(snapshotX, snapshotY);
-      ctx.rotate(Math.PI / 4);
-      ctx.fillStyle = '#d7ff7d';
-      ctx.shadowColor = 'rgba(199, 255, 103, .5)';
-      ctx.shadowBlur = 12;
-      ctx.fillRect(-5, -5, 10, 10);
       ctx.restore();
 
+      ownerCurve.forEach((point, index) => {
+        const x = xForDate(point.date);
+        const y = yValue(point.returnPct);
+        ctx.save();
+        if (index === 0) {
+          ctx.translate(x, y);
+          ctx.rotate(Math.PI / 4);
+          ctx.fillStyle = '#d7ff7d';
+          ctx.shadowColor = 'rgba(199, 255, 103, .5)';
+          ctx.shadowBlur = 12;
+          ctx.fillRect(-5, -5, 10, 10);
+        } else {
+          ctx.beginPath();
+          ctx.arc(x, y, point.status === 'OPEN SIGNAL' ? 4 : 5, 0, Math.PI * 2);
+          ctx.fillStyle = point.status === 'OPEN SIGNAL' ? '#071014' : '#d7ff7d';
+          ctx.fill();
+          ctx.strokeStyle = '#d7ff7d';
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+        }
+        ctx.restore();
+      });
+
+      const latestOwner = ownerCurve[ownerCurve.length - 1];
+      const latestX = xForDate(latestOwner.date);
+      const latestY = yValue(latestOwner.returnPct);
       ctx.save();
       ctx.font = "600 10px 'JetBrains Mono', monospace";
       ctx.fillStyle = '#d7ff7d';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(`Owner ${signedPercent(ownerSnapshot.returnPct)}`, snapshotX - 10, Math.max(14, snapshotY - 8));
+      ctx.fillText(`Owner model ${signedPercent(latestOwner.returnPct)}`, latestX - 10, Math.max(14, latestY - 8));
+      ctx.restore();
+    } else if (activeRange === 'YTD' && ownerSnapshot) {
+      const snapshotX = xForDate(ownerSnapshot.date);
+      const snapshotY = yValue(ownerSnapshot.returnPct);
+      ctx.save();
+      ctx.translate(snapshotX, snapshotY);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = '#d7ff7d';
+      ctx.fillRect(-5, -5, 10, 10);
       ctx.restore();
     }
 
@@ -3580,10 +3706,11 @@ HOME_TEMPLATE = """
     paintMetric(strategyMetric, strategyReturn);
     paintMetric(benchmarkMetric, benchmarkReturn);
     paintMetric(alphaMetric, strategyReturn - benchmarkReturn);
-    const rangeEndLabel = range === 'YTD' && ownerSnapshot ? ownerSnapshot.dateLabel : latest.dateLabel;
+    if (ownerMetric && ownerLatest) paintMetric(ownerMetric, ownerLatest.returnPct);
+    const rangeEndLabel = range === 'YTD' && ownerLatest ? ownerLatest.dateLabel : latest.dateLabel;
     windowLabel.textContent = `${rangeNames[range]} · ${visibleRows[0].dateLabel} to ${rangeEndLabel}`;
-    const ownerSummary = range === 'YTD' && ownerSnapshot
-      ? ` The owner-reported account snapshot was ${signedPercent(ownerSnapshot.returnPct)} as of ${ownerSnapshot.dateLabel}.`
+    const ownerSummary = range === 'YTD' && ownerLatest
+      ? ` The owner-reported baseline was ${signedPercent(ownerSnapshotReturn)} on ${ownerSnapshotRaw.as_of}; the bot continuation is ${signedPercent(ownerLatest.returnPct)} through ${ownerLatest.dateLabel}.`
       : '';
     canvas.setAttribute('aria-label', `For ${rangeNames[range]}, the rules backtest returned ${signedPercent(strategyReturn)} compared with ${signedPercent(benchmarkReturn)} for the S&P 500.${ownerSummary}`);
     buttons.forEach(button => {
@@ -3602,8 +3729,8 @@ HOME_TEMPLATE = """
     const localX = Math.max(0, Math.min(plotWidth, event.clientX - rect.left - leftPadding));
     const startTime = visibleRows[0].date.getTime();
     const dataEndTime = visibleRows[visibleRows.length - 1].date.getTime();
-    const endTime = activeRange === 'YTD' && ownerSnapshot
-      ? Math.max(dataEndTime, ownerSnapshot.date.getTime())
+    const endTime = activeRange === 'YTD' && ownerLatest
+      ? Math.max(dataEndTime, ownerLatest.date.getTime())
       : dataEndTime;
     const hoveredTime = startTime + (localX / Math.max(1, plotWidth)) * Math.max(1, endTime - startTime);
     hoverIndex = visibleRows.reduce((bestIndex, candidate, index) => (
@@ -3646,8 +3773,10 @@ HOME_TEMPLATE = """
 @app.route("/")
 def home():
     ytd_snapshot = load_public_ytd_snapshot()
+    ytd_ledger = load_ytd_trade_ledger(ytd_snapshot)
     performance = load_performance_comparison()
     if performance and ytd_snapshot:
+        owner_curve = build_owner_portfolio_continuation(ytd_snapshot, ytd_ledger)
         performance = {
             **performance,
             "owner_snapshot": {
@@ -3655,6 +3784,7 @@ def home():
                 "return_pct": ytd_snapshot["ytd_return_pct"],
                 "label": ytd_snapshot["return_label"],
             },
+            "owner_curve": owner_curve,
         }
     return render_template_string(
         HOME_TEMPLATE,
@@ -3664,7 +3794,7 @@ def home():
         trust_stats=load_trust_stats(),
         performance=performance,
         ytd_snapshot=ytd_snapshot,
-        ytd_ledger=load_ytd_trade_ledger(ytd_snapshot),
+        ytd_ledger=ytd_ledger,
     )
 
 
