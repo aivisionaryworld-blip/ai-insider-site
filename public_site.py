@@ -26,6 +26,7 @@ have a securities attorney review before real launch or any paid tier.
 """
 
 import hashlib
+import json
 import os
 import sys
 from datetime import datetime
@@ -49,6 +50,9 @@ app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ADSENSE_CLIENT_ID = os.environ.get("ADSENSE_CLIENT_ID", "").strip()
 PUBLIC_CURRENT_SIGNALS = os.path.join(BASE_DIR, "public_signals_current.csv")
+PUBLIC_SIGNAL_HISTORY = os.path.join(BASE_DIR, "public_signal_history.csv")
+PUBLIC_SIGNAL_OUTCOMES = os.path.join(BASE_DIR, "public_signal_outcomes.csv")
+PUBLIC_YTD_PERFORMANCE = os.path.join(BASE_DIR, "public_ytd_performance.json")
 LEGACY_CURRENT_SIGNALS = os.path.join(BASE_DIR, "v23_t212_aggressive_alloc_confirmed_basket_executable.csv")
 
 
@@ -281,6 +285,172 @@ def load_performance_comparison():
         )
     except Exception:
         return None
+
+
+def _finite_number(value, digits=2):
+    """Return a rounded public-safe number, or None for invalid input."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not np.isfinite(number):
+        return None
+    return round(number, digits)
+
+
+def _normalized_public_date(value):
+    """Normalize dates used by the public ledger to YYYY-MM-DD."""
+    if value is None:
+        return ""
+    try:
+        parsed = pd.to_datetime(value, errors="coerce")
+    except (TypeError, ValueError):
+        return ""
+    if pd.isna(parsed):
+        return ""
+    return parsed.strftime("%Y-%m-%d")
+
+
+def load_public_ytd_snapshot():
+    """Load the owner-supplied YTD headline and percentage-only trade events.
+
+    The JSON is deliberately a one-way privacy boundary: only dates, tickers,
+    statuses and percentage returns are accepted. Account values, share counts,
+    transaction IDs and dollar profit never enter the public page.
+    """
+    if not os.path.exists(PUBLIC_YTD_PERFORMANCE):
+        return None
+    try:
+        with open(PUBLIC_YTD_PERFORMANCE, "r", encoding="utf-8") as source:
+            raw = json.load(source)
+    except (OSError, ValueError, TypeError):
+        return None
+
+    try:
+        year = int(raw.get("year"))
+    except (TypeError, ValueError):
+        return None
+    ytd_return = _finite_number(raw.get("ytd_return_pct"), 1)
+    as_of = _normalized_public_date(raw.get("as_of"))
+    if not as_of or ytd_return is None:
+        return None
+
+    events = []
+    for raw_event in raw.get("trade_events", []):
+        if not isinstance(raw_event, dict):
+            continue
+        date = _normalized_public_date(raw_event.get("date"))
+        ticker = str(raw_event.get("ticker") or "").strip().upper()[:12]
+        status = str(raw_event.get("status") or "").strip().upper()
+        return_pct = _finite_number(raw_event.get("return_pct"))
+        if not date or not ticker or status not in {"WIN", "LOSS"} or return_pct is None:
+            continue
+        events.append({
+            "key": f"t212|{date}|{ticker}",
+            "date": date,
+            "ticker": ticker,
+            "rating": "",
+            "status": status,
+            "return_pct": return_pct,
+            "source": "TRADING_212_CLOSED",
+            "source_label": "Trading 212 closed",
+        })
+
+    return {
+        "period": "YTD",
+        "year": year,
+        "as_of": as_of,
+        "ytd_return_pct": ytd_return,
+        "return_label": "Owner-reported Trading 212 YTD",
+        "methodology_note": (
+            "Point-in-time account return supplied by the owner; the export "
+            "does not contain a daily equity curve."
+        ),
+        "trade_events": events,
+    }
+
+
+def _load_public_signal_outcomes():
+    """Return public signal outcomes keyed by signal date and ticker."""
+    if not os.path.exists(PUBLIC_SIGNAL_OUTCOMES):
+        return {}
+    try:
+        outcomes = pd.read_csv(PUBLIC_SIGNAL_OUTCOMES)
+    except (OSError, pd.errors.EmptyDataError, pd.errors.ParserError):
+        return {}
+    result = {}
+    for _, row in outcomes.iterrows():
+        date = _normalized_public_date(row.get("signal_date"))
+        ticker = str(row.get("ticker") or "").strip().upper()[:12]
+        status = str(row.get("status") or "OPEN").strip().upper()
+        if not date or not ticker or status not in {"OPEN", "WIN", "LOSS"}:
+            continue
+        result[(date, ticker)] = {
+            "status": "OPEN SIGNAL" if status == "OPEN" else status,
+            "return_pct": _finite_number(row.get("pnl_pct")) if status != "OPEN" else None,
+        }
+    return result
+
+
+def load_ytd_trade_ledger(snapshot=None):
+    """Combine percentage-only account closes with current public bot signals."""
+    snapshot = snapshot or load_public_ytd_snapshot()
+    if not snapshot:
+        return None
+    year = snapshot["year"]
+    events = list(snapshot["trade_events"])
+    outcomes = _load_public_signal_outcomes()
+    signal_rows = []
+
+    if os.path.exists(PUBLIC_SIGNAL_HISTORY):
+        try:
+            history = pd.read_csv(PUBLIC_SIGNAL_HISTORY)
+            signal_rows.extend(history.to_dict("records"))
+        except (OSError, pd.errors.EmptyDataError, pd.errors.ParserError):
+            pass
+    signal_rows.extend(load_public_signals())
+
+    seen_bot_keys = set()
+    for row in signal_rows:
+        date = _normalized_public_date(
+            row.get("signal_date") or row.get("trade_date") or row.get("transaction_date") or row.get("date")
+        )
+        ticker = str(row.get("ticker") or "").strip().upper()[:12]
+        if not date or not ticker or not date.startswith(f"{year}-"):
+            continue
+        key = f"bot|{date}|{ticker}"
+        if key in seen_bot_keys:
+            continue
+        seen_bot_keys.add(key)
+        outcome = outcomes.get((date, ticker), {"status": "OPEN SIGNAL", "return_pct": None})
+        rating = str(row.get("rating") or "").strip().upper()[:4]
+        events.append({
+            "key": key,
+            "date": date,
+            "ticker": ticker,
+            "rating": rating,
+            "status": outcome["status"],
+            "return_pct": outcome["return_pct"],
+            "source": "AI_INSIDER_BOT",
+            "source_label": "AI Insider bot",
+        })
+
+    events.sort(key=lambda item: (item["date"], item["source"], item["ticker"]), reverse=True)
+    closed = [event for event in events if event["status"] in {"WIN", "LOSS"}]
+    wins = sum(event["status"] == "WIN" for event in closed)
+    open_count = sum(event["status"] == "OPEN SIGNAL" for event in events)
+    closed_returns = [event["return_pct"] for event in closed if event["return_pct"] is not None]
+    latest_date = max((event["date"] for event in events), default=snapshot["as_of"])
+    return {
+        "events": events,
+        "activity_as_of": max(snapshot["as_of"], latest_date),
+        "closed_count": len(closed),
+        "wins": wins,
+        "losses": len(closed) - wins,
+        "open_count": open_count,
+        "win_rate": round(wins / len(closed) * 100, 1) if closed else None,
+        "average_closed_return": round(sum(closed_returns) / len(closed_returns), 2) if closed_returns else None,
+    }
 
 
 @lru_cache(maxsize=4)
@@ -2046,6 +2216,27 @@ footer {
   white-space: nowrap;
 }
 .performance-badge.live { border-color: rgba(0,236,159,.2); color: #75e9b9; background: rgba(0,105,73,.1); }
+.ytd-live-panel {
+  display: grid;
+  grid-template-columns: minmax(245px, .75fr) minmax(0, 1.6fr);
+  border-bottom: 1px solid rgba(255,255,255,.075);
+  background: linear-gradient(110deg, rgba(0,236,159,.075), rgba(8,124,255,.035) 44%, transparent 78%);
+}
+.ytd-return-card {
+  position: relative;
+  padding: 25px 29px 23px;
+  border-right: 1px solid rgba(255,255,255,.075);
+}
+.ytd-return-label { color: #72dcb2; font-family: 'JetBrains Mono', monospace; font-size: 8px; letter-spacing: .09em; text-transform: uppercase; }
+.ytd-return-value { display: block; margin-top: 7px; color: #69efb7; font-family: 'JetBrains Mono', monospace; font-size: clamp(38px, 5vw, 58px); line-height: 1; letter-spacing: -.065em; text-shadow: 0 0 28px rgba(0,236,159,.16); }
+.ytd-return-period { display: block; margin-top: 8px; color: #a6b1b7; font-size: 11px; }
+.ytd-return-asof { display: block; margin-top: 5px; color: #68747c; font-family: 'JetBrains Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: .06em; }
+.ytd-live-detail { display: flex; flex-direction: column; justify-content: center; padding: 23px 29px; }
+.ytd-live-detail h3 { color: #e7edef; font-size: 16px; letter-spacing: -.025em; }
+.ytd-live-detail > p { max-width: 720px; margin: 7px 0 0; color: #849098; font-size: 11px; line-height: 1.65; }
+.ytd-live-stats { display: flex; flex-wrap: wrap; gap: 9px 24px; margin-top: 16px; }
+.ytd-live-stat span { display: block; color: #66727a; font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: .08em; text-transform: uppercase; }
+.ytd-live-stat strong { display: block; margin-top: 4px; color: #c7d0d4; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
 .performance-kpis {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2119,11 +2310,45 @@ footer {
 .performance-risk { max-width: 590px; color: #a89289; }
 .performance-risk strong { color: #e9a88d; }
 .performance-asof { flex: 0 0 auto; font-family: 'JetBrains Mono', monospace; text-align: right; }
+.ytd-ledger {
+  margin-top: 19px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.065);
+  border-radius: 11px;
+  background: rgba(2,7,10,.24);
+}
+.ytd-ledger-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 18px 18px 15px; border-bottom: 1px solid rgba(255,255,255,.065); }
+.ytd-ledger-head h3 { color: #dce3e5; font-size: 15px; letter-spacing: -.02em; }
+.ytd-ledger-head p { margin: 5px 0 0; color: #6f7b83; font-size: 10px; line-height: 1.55; }
+.ytd-ledger-updated { flex: 0 0 auto; color: #6c7880; font-family: 'JetBrains Mono', monospace; font-size: 8px; text-align: right; text-transform: uppercase; letter-spacing: .055em; }
+.ytd-ledger-scroll { max-height: 390px; overflow: auto; scrollbar-color: #29343b transparent; }
+.ytd-ledger-table { width: 100%; border-collapse: collapse; }
+.ytd-ledger-table th { position: sticky; z-index: 1; top: 0; padding: 10px 14px; color: #65717a; background: rgba(8,14,18,.97); font-family: 'JetBrains Mono', monospace; font-size: 7px; font-weight: 500; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
+.ytd-ledger-table td { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.045); color: #89949b; font-size: 10px; }
+.ytd-ledger-table tbody tr:first-child td { border-top: 0; }
+.ytd-ledger-table tbody tr:hover { background: rgba(255,255,255,.018); }
+.ytd-ledger-table .trade-date { color: #7d8991; font-family: 'JetBrains Mono', monospace; }
+.ytd-ledger-table .trade-symbol { color: #e0e7e9; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; }
+.ytd-ledger-table .trade-rating { margin-left: 6px; color: #79bdff; font-size: 7px; }
+.ytd-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 7px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; color: #9ba6ac; background: rgba(255,255,255,.025); font-family: 'JetBrains Mono', monospace; font-size: 7px; letter-spacing: .055em; text-transform: uppercase; white-space: nowrap; }
+.ytd-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.ytd-status.win { border-color: rgba(0,236,159,.16); color: #70dfb0; background: rgba(0,126,85,.08); }
+.ytd-status.loss { border-color: rgba(255,105,96,.16); color: #ef8c84; background: rgba(121,35,31,.09); }
+.ytd-status.open-signal { border-color: rgba(75,163,255,.18); color: #7fbcfa; background: rgba(26,84,143,.1); }
+.ytd-trade-return { color: #aeb8bd; font-family: 'JetBrains Mono', monospace; font-weight: 600; text-align: right; }
+.ytd-trade-return.pos { color: #69e9b4; }
+.ytd-trade-return.neg { color: #f1877e; }
+.ytd-ledger-note { padding: 12px 18px; border-top: 1px solid rgba(255,255,255,.055); color: #8e7971; font-size: 9px; line-height: 1.55; }
+.ytd-ledger-note strong { color: #dda087; }
 
 @media (max-width: 760px) {
   .performance-terminal { padding-top: 18px; }
   .performance-head { flex-direction: column; padding: 23px 19px 18px; }
   .performance-badges { justify-content: flex-start; }
+  .ytd-live-panel { grid-template-columns: 1fr; }
+  .ytd-return-card { padding: 21px 19px 19px; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.065); }
+  .ytd-live-detail { padding: 19px; }
+  .ytd-live-stats { gap: 12px 22px; }
   .performance-kpis { grid-template-columns: 1fr; }
   .performance-kpi { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 14px 19px; border-right: 0; border-bottom: 1px solid rgba(255,255,255,.065); }
   .performance-kpi:last-child { border-bottom: 0; }
@@ -2136,6 +2361,11 @@ footer {
   .performance-plot { height: 270px; }
   .performance-foot { flex-direction: column; gap: 10px; }
   .performance-asof { text-align: left; }
+  .ytd-ledger-head { flex-direction: column; gap: 8px; }
+  .ytd-ledger-updated { text-align: left; }
+  .ytd-ledger-scroll { max-height: 440px; }
+  .ytd-ledger-table th, .ytd-ledger-table td { padding: 11px 10px; }
+  .ytd-ledger-table th:nth-child(3), .ytd-ledger-table td:nth-child(3) { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2271,6 +2501,9 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
   const region = document.getElementById('signal-toast-region');
   const statusNodes = Array.from(document.querySelectorAll('[data-signal-monitor-status]'));
   const copyNodes = Array.from(document.querySelectorAll('[data-signal-monitor-copy]'));
+  const ytdLedgerBody = document.querySelector('[data-ytd-ledger-body]');
+  const ytdOpenCountNodes = Array.from(document.querySelectorAll('[data-ytd-open-count]'));
+  const ytdActivityAsOfNodes = Array.from(document.querySelectorAll('[data-ytd-activity-asof]'));
   let initialized = false;
   let seen = new Set();
 
@@ -2293,6 +2526,55 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     const ids = Array.from(seen).slice(-200);
     seen = new Set(ids);
     try { localStorage.setItem(storageKey, JSON.stringify(ids)); } catch (_) {}
+  };
+
+  const upsertYtdLedgerSignal = signal => {
+    if (!ytdLedgerBody || !signal) return;
+    const ticker = String(signal.ticker || '').trim().toUpperCase().slice(0, 12);
+    const rawDate = String(signal.signal_date || signal.trade_date || '').trim();
+    const dateMatch = rawDate.match(/^\\d{4}-\\d{2}-\\d{2}/);
+    const date = dateMatch ? dateMatch[0] : '';
+    if (!ticker || !date) return;
+    const key = `bot|${date}|${ticker}`;
+    const exists = Array.from(ytdLedgerBody.querySelectorAll('[data-ledger-key]'))
+      .some(row => row.dataset.ledgerKey === key);
+    if (exists) return;
+
+    const row = document.createElement('tr');
+    row.dataset.ledgerKey = key;
+    const dateCell = document.createElement('td');
+    dateCell.className = 'trade-date';
+    dateCell.textContent = date;
+    const tickerCell = document.createElement('td');
+    tickerCell.className = 'trade-symbol';
+    tickerCell.textContent = `$${ticker}`;
+    const rating = String(signal.rating || '').trim().toUpperCase().slice(0, 4);
+    if (rating) {
+      const ratingNode = document.createElement('span');
+      ratingNode.className = 'trade-rating';
+      ratingNode.textContent = rating;
+      tickerCell.appendChild(ratingNode);
+    }
+    const sourceCell = document.createElement('td');
+    sourceCell.textContent = 'AI Insider bot';
+    const statusCell = document.createElement('td');
+    const status = document.createElement('span');
+    status.className = 'ytd-status open-signal';
+    status.textContent = 'OPEN SIGNAL';
+    statusCell.appendChild(status);
+    const returnCell = document.createElement('td');
+    returnCell.className = 'ytd-trade-return';
+    returnCell.textContent = '—';
+    row.append(dateCell, tickerCell, sourceCell, statusCell, returnCell);
+    ytdLedgerBody.prepend(row);
+
+    ytdOpenCountNodes.forEach(node => {
+      const current = Number.parseInt(node.textContent, 10);
+      node.textContent = String((Number.isFinite(current) ? current : 0) + 1);
+    });
+    ytdActivityAsOfNodes.forEach(node => {
+      if (!node.textContent.trim() || date > node.textContent.trim()) node.textContent = date;
+    });
   };
 
   const dismissToast = toast => {
@@ -2354,6 +2636,7 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       if (!response.ok) throw new Error('signal feed unavailable');
       const payload = await response.json();
       const signals = Array.isArray(payload.signals) ? payload.signals : [];
+      signals.forEach(upsertYtdLedgerSignal);
       const unseen = signals.filter(signal => signal.signal_id && !seen.has(signal.signal_id));
 
       if (!initialized && seen.size === 0) {
@@ -2490,6 +2773,27 @@ HOME_TEMPLATE = """
       </div>
     </header>
 
+    {% if ytd_snapshot and ytd_ledger %}
+    <div class="ytd-live-panel" aria-label="Owner-reported live YTD performance">
+      <div class="ytd-return-card">
+        <span class="ytd-return-label">Live account snapshot</span>
+        <strong class="ytd-return-value">{{ '+' if ytd_snapshot.ytd_return_pct >= 0 else '' }}{{ ytd_snapshot.ytd_return_pct }}%</strong>
+        <span class="ytd-return-period">{{ ytd_snapshot.return_label }}</span>
+        <span class="ytd-return-asof">As of {{ ytd_snapshot.as_of }}</span>
+      </div>
+      <div class="ytd-live-detail">
+        <h3>2026 account result and trade activity</h3>
+        <p>{{ ytd_snapshot.methodology_note }} It is shown separately from the daily backtest chart so the two records are never presented as the same dataset.</p>
+        <div class="ytd-live-stats" aria-label="YTD trade activity statistics">
+          <div class="ytd-live-stat"><span>Closed events</span><strong data-ytd-closed-count>{{ ytd_ledger.closed_count }}</strong></div>
+          <div class="ytd-live-stat"><span>Closed win rate</span><strong>{{ ytd_ledger.win_rate }}%</strong></div>
+          <div class="ytd-live-stat"><span>Avg. closed trade</span><strong>{% if ytd_ledger.average_closed_return is not none %}{{ '+' if ytd_ledger.average_closed_return >= 0 else '' }}{{ ytd_ledger.average_closed_return }}%{% else %}&mdash;{% endif %}</strong></div>
+          <div class="ytd-live-stat"><span>Open bot signals</span><strong data-ytd-open-count>{{ ytd_ledger.open_count }}</strong></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <div class="performance-kpis" aria-live="polite">
       <div class="performance-kpi">
         <span>AI Insider backtest</span>
@@ -2539,6 +2843,39 @@ HOME_TEMPLATE = """
         <p class="performance-risk"><strong>Hypothetical backtest:</strong> this is not a live portfolio or a guarantee of future returns. Open signals are displayed separately and are not counted as realized performance. Trade at your own risk.</p>
         <p class="performance-asof">Comparable data<br>{{ performance.start_date }} &rarr; {{ performance.as_of }}</p>
       </div>
+
+      {% if ytd_ledger and ytd_ledger.events %}
+      <section class="ytd-ledger" aria-labelledby="ytd-ledger-title">
+        <header class="ytd-ledger-head">
+          <div>
+            <h3 id="ytd-ledger-title">2026 trade activity</h3>
+            <p>Percentage-only closed activity from the supplied account export, followed by every new public bot signal.</p>
+          </div>
+          <span class="ytd-ledger-updated">Updated through<br><strong data-ytd-activity-asof>{{ ytd_ledger.activity_as_of }}</strong></span>
+        </header>
+        <div class="ytd-ledger-scroll">
+          <table class="ytd-ledger-table">
+            <thead><tr><th>Date</th><th>Ticker</th><th>Source</th><th>Status</th><th style="text-align:right;">Return</th></tr></thead>
+            <tbody data-ytd-ledger-body>
+              {% for trade in ytd_ledger.events %}
+              <tr data-ledger-key="{{ trade.key }}">
+                <td class="trade-date">{{ trade.date }}</td>
+                <td class="trade-symbol">${{ trade.ticker }}{% if trade.rating %}<span class="trade-rating">{{ trade.rating }}</span>{% endif %}</td>
+                <td>{{ trade.source_label }}</td>
+                <td><span class="ytd-status {{ trade.status|lower|replace(' ', '-') }}">{{ trade.status }}</span></td>
+                {% if trade.return_pct is not none %}
+                <td class="ytd-trade-return {{ 'pos' if trade.return_pct >= 0 else 'neg' }}">{{ '+' if trade.return_pct >= 0 else '' }}{{ trade.return_pct }}%</td>
+                {% else %}
+                <td class="ytd-trade-return">&mdash;</td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p class="ytd-ledger-note"><strong>Important:</strong> bot signals are research alerts, not proof that a trade was executed. Open signals do not change the closed-performance figures. Not financial advice. Trade at your own risk.</p>
+      </section>
+      {% endif %}
     </div>
     <script type="application/json" id="performance-data">{{ performance|tojson }}</script>
   </article>
@@ -3163,6 +3500,7 @@ HOME_TEMPLATE = """
 
 @app.route("/")
 def home():
+    ytd_snapshot = load_public_ytd_snapshot()
     return render_template_string(
         HOME_TEMPLATE,
         signals=load_public_signals(),
@@ -3170,6 +3508,8 @@ def home():
         filings=load_filings_table(),
         trust_stats=load_trust_stats(),
         performance=load_performance_comparison(),
+        ytd_snapshot=ytd_snapshot,
+        ytd_ledger=load_ytd_trade_ledger(ytd_snapshot),
     )
 
 

@@ -1,0 +1,241 @@
+{
+  "period": "YTD",
+  "year": 2026,
+  "as_of": "2026-07-30",
+  "ytd_return_pct": 85.0,
+  "return_label": "Owner-reported Trading 212 YTD",
+  "methodology_note": "Point-in-time account return supplied by the owner; the export does not contain a daily equity curve.",
+  "trade_events": [
+    {
+      "date": "2026-07-29",
+      "ticker": "ADSK",
+      "status": "WIN",
+      "return_pct": 22.13,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-07-23",
+      "ticker": "FCEL",
+      "status": "WIN",
+      "return_pct": 10.17,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-07-21",
+      "ticker": "PRQR",
+      "status": "WIN",
+      "return_pct": 16.67,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-07-16",
+      "ticker": "OXM",
+      "status": "WIN",
+      "return_pct": 10.32,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-07-14",
+      "ticker": "YPF",
+      "status": "WIN",
+      "return_pct": 10.03,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-07-02",
+      "ticker": "XRAY",
+      "status": "WIN",
+      "return_pct": 9.96,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-07-02",
+      "ticker": "AVO",
+      "status": "WIN",
+      "return_pct": 10.02,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-06-12",
+      "ticker": "NKE",
+      "status": "WIN",
+      "return_pct": 1.1,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-06-12",
+      "ticker": "LOAR",
+      "status": "WIN",
+      "return_pct": 21.55,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-06-11",
+      "ticker": "SPCE",
+      "status": "WIN",
+      "return_pct": 23.76,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-06-11",
+      "ticker": "LW",
+      "status": "WIN",
+      "return_pct": 4.67,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-06-08",
+      "ticker": "WASH",
+      "status": "WIN",
+      "return_pct": 7.61,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-06-08",
+      "ticker": "HOMB",
+      "status": "WIN",
+      "return_pct": 0.26,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-06-08",
+      "ticker": "BMI",
+      "status": "WIN",
+      "return_pct": 6.26,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-06-04",
+      "ticker": "QDEL",
+      "status": "WIN",
+      "return_pct": 10.08,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-05-08",
+      "ticker": "PS",
+      "status": "WIN",
+      "return_pct": 10.3,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-05-07",
+      "ticker": "HYMC",
+      "status": "WIN",
+      "return_pct": 11.71,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-05-05",
+      "ticker": "ANVS",
+      "status": "WIN",
+      "return_pct": 16.29,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-04-30",
+      "ticker": "HTGC",
+      "status": "WIN",
+      "return_pct": 7.57,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-04-23",
+      "ticker": "STIM",
+      "status": "WIN",
+      "return_pct": 9.55,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-04-22",
+      "ticker": "MX",
+      "status": "WIN",
+      "return_pct": 33.1,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-04-20",
+      "ticker": "PTLO",
+      "status": "WIN",
+      "return_pct": 9.93,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-04-20",
+      "ticker": "CNDT",
+      "status": "WIN",
+      "return_pct": 10.33,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-04-17",
+      "ticker": "SONO",
+      "status": "WIN",
+      "return_pct": 9.52,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-04-17",
+      "ticker": "LOAR",
+      "status": "WIN",
+      "return_pct": 10.95,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-04-13",
+      "ticker": "TGLS",
+      "status": "WIN",
+      "return_pct": 11.71,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-04-08",
+      "ticker": "BGDE",
+      "status": "WIN",
+      "return_pct": 3.28,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-04-06",
+      "ticker": "KLC",
+      "status": "WIN",
+      "return_pct": 18.18,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-03-18",
+      "ticker": "NEXT",
+      "status": "WIN",
+      "return_pct": 22.99,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-02-26",
+      "ticker": "AIRJ",
+      "status": "LOSS",
+      "return_pct": -8.0,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-02-17",
+      "ticker": "VIVO",
+      "status": "WIN",
+      "return_pct": 18.86,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-01-29",
+      "ticker": "SGMOQ",
+      "status": "WIN",
+      "return_pct": 22.8,
+      "source": "TRADING_212_CLOSED"
+    },
+    {
+      "date": "2026-01-28",
+      "ticker": "STEX",
+      "status": "WIN",
+      "return_pct": 21.61,
+      "source": "TRADING_212_CLOSED"
+    }
+  ]
+}
