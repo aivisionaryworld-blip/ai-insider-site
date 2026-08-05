@@ -596,6 +596,26 @@ def _load_performance_comparison_cached(_equity_mtime, _benchmark_mtime):
     if len(equity) < 2 or len(benchmark) < 2:
         return None
 
+    benchmark_year = int(benchmark["date"].dt.year.max())
+    benchmark_year_start = pd.Timestamp(year=benchmark_year, month=1, day=1)
+    benchmark_prior = benchmark[benchmark["date"] < benchmark_year_start].tail(1)
+    benchmark_ytd = benchmark[benchmark["date"] >= benchmark_year_start].copy()
+    if benchmark_ytd.empty:
+        return None
+    benchmark_base_row = benchmark_prior.iloc[-1] if not benchmark_prior.empty else benchmark_ytd.iloc[0]
+    benchmark_base = float(benchmark_base_row["adjusted_close"])
+    benchmark_ytd_points = [[
+        benchmark_base_row["date"].strftime("%Y-%m-%d"),
+        0.0,
+    ]]
+    benchmark_ytd_points.extend([
+        [
+            row.date.strftime("%Y-%m-%d"),
+            round((float(row.adjusted_close) / benchmark_base - 1.0) * 100.0, 4),
+        ]
+        for row in benchmark_ytd.itertuples(index=False)
+    ])
+
     strategy_index = [100.0]
     for index in range(1, len(equity)):
         previous = equity.iloc[index - 1]
@@ -640,6 +660,8 @@ def _load_performance_comparison_cached(_equity_mtime, _benchmark_mtime):
 
     return {
         "points": points,
+        "benchmark_ytd_points": benchmark_ytd_points,
+        "benchmark_ytd_as_of": benchmark_ytd_points[-1][0],
         "start_date": points[0][0],
         "as_of": points[-1][0],
         "trade_count": trade_count,
@@ -2406,6 +2428,7 @@ footer {
   pointer-events: none;
 }
 .performance-tooltip.show { display: block; }
+.performance-tooltip [hidden] { display: none; }
 .performance-tooltip time { display: block; color: #7c8790; font-family: 'JetBrains Mono', monospace; font-size: 8px; }
 .performance-tooltip div { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 7px; color: #aeb6bc; font-size: 10px; }
 .performance-tooltip strong { font-family: 'JetBrains Mono', monospace; font-size: 10px; }
@@ -2417,7 +2440,7 @@ footer {
 .performance-legend i { width: 20px; height: 2px; border-radius: 99px; background: #00ec9f; box-shadow: 0 0 8px rgba(0,236,159,.25); }
 .performance-legend .benchmark i { background: #4ba3ff; box-shadow: none; }
 .performance-legend .owner i { background: #d7ff7d; box-shadow: 0 0 9px rgba(199,255,103,.42); }
-.performance-legend.owner-mode [data-comparison-legend] { display: none; }
+.performance-legend.owner-mode [data-backtest-legend] { display: none; }
 .performance-foot {
   display: flex;
   align-items: flex-start;
@@ -2953,9 +2976,9 @@ HOME_TEMPLATE = """
         <small>SPY adjusted-close proxy</small>
       </div>
       <div class="performance-kpi">
-        <span>Backtest excess</span>
+        <span data-alpha-label>Backtest excess</span>
         <strong data-alpha-return>&mdash;</strong>
-        <small>Rules backtest minus benchmark</small>
+        <small data-alpha-help>Rules backtest minus benchmark</small>
       </div>
     </div>
     {% elif ytd_snapshot %}
@@ -2988,18 +3011,18 @@ HOME_TEMPLATE = """
         <div class="performance-tooltip" data-performance-tooltip>
           <time data-tooltip-date></time>
           <div data-tooltip-owner-row hidden><span>Portfolio YTD</span><strong class="owner-value" data-tooltip-owner></strong></div>
-          <div data-tooltip-comparison-row><span>Rules backtest</span><strong class="strategy-value" data-tooltip-strategy></strong></div>
-          <div data-tooltip-comparison-row><span>S&amp;P 500</span><strong class="benchmark-value" data-tooltip-benchmark></strong></div>
+          <div data-tooltip-backtest-row><span>Rules backtest</span><strong class="strategy-value" data-tooltip-strategy></strong></div>
+          <div data-tooltip-benchmark-row><span>S&amp;P 500 YTD</span><strong class="benchmark-value" data-tooltip-benchmark></strong></div>
         </div>
       </div>
       <div class="performance-legend" data-performance-legend aria-hidden="true">
         {% if ytd_snapshot %}<span class="owner"><i></i>Owner baseline + bot continuation</span>{% endif %}
-        <span data-comparison-legend><i></i>Rules backtest</span>
-        <span class="benchmark" data-comparison-legend><i></i>S&amp;P 500 (SPY)</span>
+        <span data-backtest-legend><i></i>Rules backtest</span>
+        <span class="benchmark"><i></i>S&amp;P 500 (SPY)</span>
       </div>
       <div class="performance-foot">
-        <p class="performance-risk" data-performance-risk><strong>Portfolio YTD:</strong> owner-reported +85% baseline, continued only by resolved bot signals.</p>
-        <p class="performance-asof" data-performance-asof>Portfolio continuation<br>{{ ytd_snapshot.as_of }} &rarr; {{ ytd_ledger.activity_as_of }}</p>
+        <p class="performance-risk" data-performance-risk><strong>Portfolio comparison:</strong> owner-reported +85% snapshot and forward bot continuation versus SPY adjusted-close YTD.</p>
+        <p class="performance-asof" data-performance-asof>Owner history begins {{ ytd_snapshot.as_of }}<br>SPY curve covers full YTD</p>
       </div>
       {% endif %}
 
@@ -3448,18 +3471,27 @@ HOME_TEMPLATE = """
     signalReturnPct: point.signal_return_pct === null || point.signal_return_pct === undefined ? null : Number(point.signal_return_pct)
   })).filter(point => Number.isFinite(point.date.getTime()) && Number.isFinite(point.returnPct));
   const ownerLatest = ownerCurve.length ? ownerCurve[ownerCurve.length - 1] : ownerSnapshot;
+  const benchmarkYtdRows = (payload.benchmark_ytd_points || []).map(point => ({
+    date: new Date(String(point[0] || '') + 'T00:00:00Z'),
+    dateLabel: String(point[0] || ''),
+    returnPct: Number(point[1])
+  })).filter(point => Number.isFinite(point.date.getTime()) && Number.isFinite(point.returnPct));
+  const benchmarkYtdLatest = benchmarkYtdRows.length ? benchmarkYtdRows[benchmarkYtdRows.length - 1] : null;
 
   const ctx = canvas.getContext('2d');
   const tooltip = document.querySelector('[data-performance-tooltip]');
   const tooltipDate = document.querySelector('[data-tooltip-date]');
   const tooltipOwner = document.querySelector('[data-tooltip-owner]');
   const tooltipOwnerRow = document.querySelector('[data-tooltip-owner-row]');
-  const tooltipComparisonRows = Array.from(document.querySelectorAll('[data-tooltip-comparison-row]'));
+  const tooltipBacktestRow = document.querySelector('[data-tooltip-backtest-row]');
+  const tooltipBenchmarkRow = document.querySelector('[data-tooltip-benchmark-row]');
   const tooltipStrategy = document.querySelector('[data-tooltip-strategy]');
   const tooltipBenchmark = document.querySelector('[data-tooltip-benchmark]');
   const strategyMetric = document.querySelector('[data-strategy-return]');
   const benchmarkMetric = document.querySelector('[data-benchmark-return]');
   const alphaMetric = document.querySelector('[data-alpha-return]');
+  const alphaLabel = document.querySelector('[data-alpha-label]');
+  const alphaHelp = document.querySelector('[data-alpha-help]');
   const ownerMetric = document.querySelector('[data-owner-return]');
   const windowLabel = document.querySelector('[data-performance-window]');
   const performanceLegend = document.querySelector('[data-performance-legend]');
@@ -3547,18 +3579,18 @@ HOME_TEMPLATE = """
     const padding = { top: 20, right: 17, bottom: 34, left: width < 520 ? 48 : 58 };
     const plotWidth = width - padding.left - padding.right;
     const plotHeight = height - padding.top - padding.bottom;
-    const ownerMode = activeRange === 'YTD' && ownerCurve.length;
+    const ownerMode = activeRange === 'YTD' && ownerCurve.length && benchmarkYtdRows.length;
     const values = ownerMode
-      ? ownerCurve.map(point => point.returnPct)
+      ? [0, ...ownerCurve.map(point => point.returnPct), ...benchmarkYtdRows.map(point => point.returnPct)]
       : visibleRows.flatMap(row => [row.strategyReturn, row.benchmarkReturn]);
     let minValue;
     let maxValue;
     if (ownerMode) {
-      const ownerMin = Math.min(...values);
-      const ownerMax = Math.max(...values);
-      const ownerSpread = Math.max(4, ownerMax - ownerMin);
-      minValue = ownerMin - ownerSpread * .6;
-      maxValue = ownerMax + ownerSpread * .6;
+      const comparisonMin = Math.min(...values);
+      const comparisonMax = Math.max(...values);
+      const comparisonSpread = Math.max(10, comparisonMax - comparisonMin);
+      minValue = comparisonMin - comparisonSpread * .08;
+      maxValue = comparisonMax + comparisonSpread * .1;
     } else {
       minValue = Math.min(0, ...values);
       maxValue = Math.max(0, ...values);
@@ -3567,10 +3599,11 @@ HOME_TEMPLATE = """
       maxValue += comparisonSpread * .12;
     }
     const spread = Math.max(1, maxValue - minValue);
-    const startTime = ownerMode ? ownerCurve[0].date.getTime() : visibleRows[0].date.getTime();
+    const startTime = ownerMode ? benchmarkYtdRows[0].date.getTime() : visibleRows[0].date.getTime();
     const dataEndTime = visibleRows[visibleRows.length - 1].date.getTime();
     const ownerEndTime = ownerLatest ? ownerLatest.date.getTime() : dataEndTime;
-    const endTime = ownerMode ? ownerEndTime : dataEndTime;
+    const benchmarkYtdEndTime = benchmarkYtdLatest ? benchmarkYtdLatest.date.getTime() : dataEndTime;
+    const endTime = ownerMode ? Math.max(ownerEndTime, benchmarkYtdEndTime) : dataEndTime;
     const timeSpan = Math.max(1, endTime - startTime);
     const xForDate = date => padding.left + (date.getTime() - startTime) / timeSpan * plotWidth;
     const xFor = index => xForDate(visibleRows[index].date);
@@ -3616,6 +3649,29 @@ HOME_TEMPLATE = """
 
       drawSeries(visibleRows, xFor, benchmarkY, '#4ba3ff', 1.7, [5, 4]);
       drawSeries(visibleRows, xFor, strategyY, '#00ec9f', 2.2);
+    } else {
+      const zeroY = yValue(0);
+      const benchmarkFill = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
+      benchmarkFill.addColorStop(0, 'rgba(75, 163, 255, .18)');
+      benchmarkFill.addColorStop(1, 'rgba(75, 163, 255, 0)');
+      ctx.beginPath();
+      benchmarkYtdRows.forEach((row, index) => {
+        const x = xForDate(row.date);
+        const y = yValue(row.returnPct);
+        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.lineTo(xForDate(benchmarkYtdLatest.date), zeroY);
+      ctx.lineTo(xForDate(benchmarkYtdRows[0].date), zeroY);
+      ctx.closePath();
+      ctx.fillStyle = benchmarkFill;
+      ctx.fill();
+      drawSeries(
+        benchmarkYtdRows,
+        index => xForDate(benchmarkYtdRows[index].date),
+        row => yValue(row.returnPct),
+        '#4ba3ff',
+        2.2
+      );
     }
 
     const labelIndexes = [0, Math.floor((visibleRows.length - 1) / 2), visibleRows.length - 1];
@@ -3624,10 +3680,12 @@ HOME_TEMPLATE = """
     ctx.fillStyle = '#647078';
     ctx.textBaseline = 'bottom';
     if (ownerMode) {
-      ctx.textAlign = 'left';
-      ctx.fillText(ownerCurve[0].dateLabel, xForDate(ownerCurve[0].date), height - 8);
-      ctx.textAlign = 'right';
-      ctx.fillText(ownerLatest.dateLabel, xForDate(ownerLatest.date), height - 8);
+      const benchmarkLabelIndexes = [0, Math.floor((benchmarkYtdRows.length - 1) / 2), benchmarkYtdRows.length - 1];
+      benchmarkLabelIndexes.forEach((index, position) => {
+        const point = benchmarkYtdRows[index];
+        ctx.textAlign = position === 0 ? 'left' : (position === 2 ? 'right' : 'center');
+        ctx.fillText(point.dateLabel, xForDate(point.date), height - 8);
+      });
     } else {
       labelIndexes.forEach((index, position) => {
         ctx.textAlign = position === 0 ? 'left' : (position === 2 ? 'right' : 'center');
@@ -3637,6 +3695,18 @@ HOME_TEMPLATE = """
     ctx.restore();
 
     if (ownerMode) {
+      const ownerBaselineX = xForDate(ownerCurve[0].date);
+      const ownerBaselineY = yValue(ownerCurve[0].returnPct);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(ownerBaselineX, yValue(0));
+      ctx.lineTo(ownerBaselineX, ownerBaselineY);
+      ctx.strokeStyle = 'rgba(215, 255, 125, .35)';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([5, 5]);
+      ctx.stroke();
+      ctx.restore();
+
       ctx.save();
       ctx.beginPath();
       ownerCurve.forEach((point, index) => {
@@ -3686,6 +3756,16 @@ HOME_TEMPLATE = """
       ctx.textBaseline = 'bottom';
       ctx.fillText(`Owner model ${signedPercent(latestOwner.returnPct)}`, latestX - 10, Math.max(14, latestY - 8));
       ctx.restore();
+
+      const benchmarkLatestX = xForDate(benchmarkYtdLatest.date);
+      const benchmarkLatestY = yValue(benchmarkYtdLatest.returnPct);
+      ctx.save();
+      ctx.font = "600 10px 'JetBrains Mono', monospace";
+      ctx.fillStyle = '#75baff';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`S&P 500 ${signedPercent(benchmarkYtdLatest.returnPct)}`, benchmarkLatestX - 10, Math.max(14, benchmarkLatestY - 8));
+      ctx.restore();
     } else if (activeRange === 'YTD' && ownerSnapshot) {
       const snapshotX = xForDate(ownerSnapshot.date);
       const snapshotY = yValue(ownerSnapshot.returnPct);
@@ -3697,21 +3777,21 @@ HOME_TEMPLATE = """
       ctx.restore();
     }
 
-    if (ownerMode && hoverIndex !== null && ownerCurve[hoverIndex]) {
-      const point = ownerCurve[hoverIndex];
+    if (ownerMode && hoverIndex !== null && benchmarkYtdRows[hoverIndex]) {
+      const point = benchmarkYtdRows[hoverIndex];
       const x = xForDate(point.date);
       const y = yValue(point.returnPct);
       ctx.beginPath();
       ctx.moveTo(x, padding.top);
       ctx.lineTo(x, padding.top + plotHeight);
-      ctx.strokeStyle = 'rgba(215,255,125,.2)';
+      ctx.strokeStyle = 'rgba(75,163,255,.22)';
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.beginPath();
       ctx.arc(x, y, 5, 0, Math.PI * 2);
       ctx.fillStyle = '#071014';
       ctx.fill();
-      ctx.strokeStyle = '#d7ff7d';
+      ctx.strokeStyle = '#4ba3ff';
       ctx.lineWidth = 2;
       ctx.stroke();
     } else if (hoverIndex !== null && visibleRows[hoverIndex]) {
@@ -3747,13 +3827,19 @@ HOME_TEMPLATE = """
     paintMetric(benchmarkMetric, benchmarkReturn);
     paintMetric(alphaMetric, strategyReturn - benchmarkReturn);
     if (ownerMetric && ownerLatest) paintMetric(ownerMetric, ownerLatest.returnPct);
-    const ownerMode = range === 'YTD' && ownerCurve.length;
+    const ownerMode = range === 'YTD' && ownerCurve.length && benchmarkYtdRows.length;
     if (ownerMode) {
-      windowLabel.textContent = `Portfolio YTD · ${ownerCurve[0].dateLabel} baseline to ${ownerLatest.dateLabel}`;
-      canvas.setAttribute('aria-label', `Owner portfolio YTD is ${signedPercent(ownerLatest.returnPct)}, continued from the owner-reported ${signedPercent(ownerSnapshotReturn)} baseline on ${ownerSnapshotRaw.as_of}.`);
-      if (performanceRisk) performanceRisk.textContent = `Portfolio YTD: owner-reported ${signedPercent(ownerSnapshotReturn)} baseline, continued only by resolved bot signals.`;
-      if (performanceAsOf) performanceAsOf.textContent = `Owner continuation · ${ownerCurve[0].dateLabel} to ${ownerLatest.dateLabel}`;
+      paintMetric(benchmarkMetric, benchmarkYtdLatest.returnPct);
+      paintMetric(alphaMetric, ownerLatest.returnPct - benchmarkYtdLatest.returnPct);
+      if (alphaLabel) alphaLabel.textContent = 'Portfolio vs S&P';
+      if (alphaHelp) alphaHelp.textContent = 'Owner snapshot minus SPY YTD';
+      windowLabel.textContent = `YTD comparison · ${benchmarkYtdRows[0].dateLabel} to ${benchmarkYtdLatest.dateLabel}`;
+      canvas.setAttribute('aria-label', `Owner portfolio YTD is ${signedPercent(ownerLatest.returnPct)} from an owner-reported baseline on ${ownerSnapshotRaw.as_of}, compared with ${signedPercent(benchmarkYtdLatest.returnPct)} for the S&P 500 YTD.`);
+      if (performanceRisk) performanceRisk.textContent = `Portfolio comparison: owner-reported ${signedPercent(ownerSnapshotReturn)} snapshot and forward bot continuation versus the full SPY adjusted-close YTD curve.`;
+      if (performanceAsOf) performanceAsOf.textContent = `Owner history begins ${ownerCurve[0].dateLabel} · SPY through ${benchmarkYtdLatest.dateLabel}`;
     } else {
+      if (alphaLabel) alphaLabel.textContent = 'Backtest excess';
+      if (alphaHelp) alphaHelp.textContent = 'Rules backtest minus benchmark';
       windowLabel.textContent = `${rangeNames[range]} · ${visibleRows[0].dateLabel} to ${latest.dateLabel}`;
       canvas.setAttribute('aria-label', `For ${rangeNames[range]}, the rules backtest returned ${signedPercent(strategyReturn)} compared with ${signedPercent(benchmarkReturn)} for the S&P 500.`);
       if (performanceRisk) performanceRisk.textContent = 'Hypothetical rules backtest: this line is not the owner account and is not a guarantee of future returns.';
@@ -3761,7 +3847,8 @@ HOME_TEMPLATE = """
     }
     if (performanceLegend) performanceLegend.classList.toggle('owner-mode', ownerMode);
     if (tooltipOwnerRow) tooltipOwnerRow.hidden = !ownerMode;
-    tooltipComparisonRows.forEach(row => { row.hidden = ownerMode; });
+    if (tooltipBacktestRow) tooltipBacktestRow.hidden = ownerMode;
+    if (tooltipBenchmarkRow) tooltipBenchmarkRow.hidden = false;
     buttons.forEach(button => {
       const active = button.dataset.range === range;
       button.classList.toggle('active', active);
@@ -3776,8 +3863,8 @@ HOME_TEMPLATE = """
     const leftPadding = rect.width < 520 ? 48 : 58;
     const plotWidth = rect.width - leftPadding - 17;
     const localX = Math.max(0, Math.min(plotWidth, event.clientX - rect.left - leftPadding));
-    const ownerMode = activeRange === 'YTD' && ownerCurve.length;
-    const hoverRows = ownerMode ? ownerCurve : visibleRows;
+    const ownerMode = activeRange === 'YTD' && ownerCurve.length && benchmarkYtdRows.length;
+    const hoverRows = ownerMode ? benchmarkYtdRows : visibleRows;
     const startTime = hoverRows[0].date.getTime();
     const endTime = hoverRows[hoverRows.length - 1].date.getTime();
     const hoveredTime = startTime + (localX / Math.max(1, plotWidth)) * Math.max(1, endTime - startTime);
@@ -3790,7 +3877,10 @@ HOME_TEMPLATE = """
     if (!row) return;
     tooltipDate.textContent = dateFormatter.format(row.date);
     if (ownerMode) {
-      tooltipOwner.textContent = signedPercent(row.returnPct);
+      const availableOwnerPoints = ownerCurve.filter(point => point.date.getTime() <= row.date.getTime());
+      const availableOwner = availableOwnerPoints.length ? availableOwnerPoints[availableOwnerPoints.length - 1] : null;
+      tooltipOwner.textContent = availableOwner ? signedPercent(availableOwner.returnPct) : 'Starts Jul 30';
+      tooltipBenchmark.textContent = signedPercent(row.returnPct);
     } else {
       tooltipStrategy.textContent = signedPercent(row.strategyReturn);
       tooltipBenchmark.textContent = signedPercent(row.benchmarkReturn);
