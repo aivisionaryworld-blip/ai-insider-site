@@ -124,20 +124,48 @@ def load_ticker_items(limit=15):
     return recent[["ticker", "rating", "signal_date"]].to_dict("records")
 
 
-def load_scan_status():
-    """Honest status — real last-modified time of the signal file, never
-    claimed as 'live' or 'real-time' since this is a periodic scan, not a
-    streaming feed."""
-    path = current_signals_path()
+def _newest_signal_date(path):
+    """Newest signal_date in a public feed CSV, or None."""
     if not os.path.exists(path):
+        return None
+    try:
+        df = pd.read_csv(path)
+    except (pd.errors.EmptyDataError, OSError):
+        return None
+    if df.empty:
+        return None
+    for column in ("signal_date", "trade_date", "date"):
+        if column in df.columns:
+            parsed = pd.to_datetime(df[column], errors="coerce").dropna()
+            if not parsed.empty:
+                return parsed.max().date()
+    return None
+
+
+def load_scan_status():
+    """Honest status derived from the DATA, not the file's mtime.
+
+    This previously used os.path.getmtime() on the feed. A git checkout — which
+    is exactly what a Render deploy does — rewrites file mtimes, so the site
+    reported the DEPLOY time as the scan time and therefore always looked
+    fresh, no matter how old the underlying signals really were.
+
+    We can only honestly know when the newest SIGNAL is dated; the data does
+    not record when a scan ran. So that is all we claim. If the current feed is
+    legitimately empty (a successful scan that found nothing qualifying), fall
+    back to the permanent history so the page still shows a real date.
+    """
+    latest = _newest_signal_date(current_signals_path())
+    if latest is None:
+        latest = _newest_signal_date(PUBLIC_SIGNAL_HISTORY)
+    if latest is None:
         return {"available": False}
-    mtime = datetime.fromtimestamp(os.path.getmtime(path))
-    age_hours = (datetime.now() - mtime).total_seconds() / 3600
+    days_ago = (datetime.now().date() - latest).days
     return {
         "available": True,
-        "last_scan": mtime.strftime("%Y-%m-%d %H:%M"),
-        "hours_ago": round(age_hours, 1),
-        "fresh": age_hours < 30,  # roughly "since yesterday's scan"
+        "last_signal_date": latest.strftime("%Y-%m-%d"),
+        "days_ago": days_ago,
+        "fresh": days_ago <= 3,
     }
 
 
@@ -394,6 +422,9 @@ def load_public_ytd_snapshot():
         "methodology_note": str(raw.get("methodology_note") or "").strip(),
         "curve_method": str(raw.get("curve_method") or "").strip(),
         "owner_curve": owner_curve,
+        # First dated point of the reconstructed curve. `as_of` is where the
+        # curve ENDS, so it must never be presented as where history begins.
+        "curve_start": owner_curve[0]["date"] if owner_curve else None,
         "trade_events": events,
     }
 
@@ -2599,7 +2630,7 @@ NAV = """
   <div class="status-bar"><div class="wrap">
     {% if scan_status.available %}
       <span class="status-dot {{ '' if scan_status.fresh else 'stale' }}"></span>
-      Last scan: {{ scan_status.last_scan }} UTC ({{ scan_status.hours_ago }}h ago) &middot; periodic scan, not real-time
+      Latest signal: {{ scan_status.last_signal_date }} ({{ scan_status.days_ago }}d ago) &middot; periodic scan, not real-time
     {% else %}
       <span class="status-dot stale"></span> Scanner status not available yet
     {% endif %}
@@ -3052,7 +3083,7 @@ HOME_TEMPLATE = """
       </div>
       <div class="performance-foot">
         <p class="performance-risk" data-performance-risk><strong>Portfolio comparison:</strong> owner-reported +85% snapshot and forward bot continuation versus SPY adjusted-close YTD.</p>
-        <p class="performance-asof" data-performance-asof>Owner history begins {{ ytd_snapshot.as_of }}<br>SPY curve covers full YTD</p>
+        <p class="performance-asof" data-performance-asof>Owner history {% if ytd_snapshot.curve_start %}{{ ytd_snapshot.curve_start }} &rarr; {% endif %}{{ ytd_snapshot.as_of }}<br>SPY curve covers full YTD</p>
       </div>
       {% endif %}
 
