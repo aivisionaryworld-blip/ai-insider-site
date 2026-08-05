@@ -2976,7 +2976,7 @@ HOME_TEMPLATE = """
     <header class="performance-head">
       <div class="performance-heading">
         <span class="eyebrow">Strategy dashboard</span>
-        <h2 id="performance-title">{% if performance %}Owner YTD, rules backtest &amp; S&amp;P 500{% else %}2026 performance &amp; trade activity{% endif %}</h2>
+        <h2 id="performance-title">{% if performance %}Owner portfolio, rules backtest &amp; S&amp;P 500{% else %}2026 performance &amp; trade activity{% endif %}</h2>
         <p>{% if performance %}A single dashboard with each record labeled by what it actually measures.{% else %}The owner-reported YTD snapshot and public trade ledger remain available while comparison-chart data is being refreshed.{% endif %}</p>
       </div>
       <div class="performance-badges" aria-label="Performance dataset details">
@@ -2990,15 +2990,15 @@ HOME_TEMPLATE = """
     <div class="performance-kpis" aria-live="polite">
       {% if ytd_snapshot %}
       <div class="performance-kpi owner">
-        <span>Owner baseline + bot continuation</span>
+        <span>Owner portfolio</span>
         <strong data-owner-return>{{ '+' if ytd_snapshot.ytd_return_pct >= 0 else '' }}{{ ytd_snapshot.ytd_return_pct }}%</strong>
-        <small>{{ '+' if ytd_snapshot.ytd_return_pct >= 0 else '' }}{{ ytd_snapshot.ytd_return_pct }}% owner baseline &middot; resolved signals update it</small>
+        <small>Selected-period return &middot; reconstructed from the owner ledger</small>
       </div>
       {% endif %}
       <div class="performance-kpi">
         <span>Rules backtest</span>
         <strong data-strategy-return>&mdash;</strong>
-        <small>Hypothetical time-weighted return</small>
+        <small>Separate hypothetical YTD time-weighted return</small>
       </div>
       <div class="performance-kpi">
         <span>S&amp;P 500</span>
@@ -3037,16 +3037,16 @@ HOME_TEMPLATE = """
         </div>
       </div>
       <div class="performance-plot">
-        <canvas class="performance-canvas" data-performance-canvas role="img" aria-label="Owner-reported 85 percent YTD baseline continued by resolved bot signals, with the rules backtest and S&P 500 comparison"></canvas>
+        <canvas class="performance-canvas" data-performance-canvas role="img" aria-label="Owner portfolio compared with the S&P 500 for the selected period"></canvas>
         <div class="performance-tooltip" data-performance-tooltip>
           <time data-tooltip-date></time>
-          <div data-tooltip-owner-row hidden><span>Portfolio YTD</span><strong class="owner-value" data-tooltip-owner></strong></div>
+          <div data-tooltip-owner-row hidden><span>Owner portfolio</span><strong class="owner-value" data-tooltip-owner></strong></div>
           <div data-tooltip-backtest-row><span>Rules backtest</span><strong class="strategy-value" data-tooltip-strategy></strong></div>
-          <div data-tooltip-benchmark-row><span>S&amp;P 500 YTD</span><strong class="benchmark-value" data-tooltip-benchmark></strong></div>
+          <div data-tooltip-benchmark-row><span>S&amp;P 500</span><strong class="benchmark-value" data-tooltip-benchmark></strong></div>
         </div>
       </div>
       <div class="performance-legend" data-performance-legend aria-hidden="true">
-        {% if ytd_snapshot %}<span class="owner"><i></i>Owner baseline + bot continuation</span>{% endif %}
+        {% if ytd_snapshot %}<span class="owner"><i></i>Owner portfolio</span>{% endif %}
         <span data-backtest-legend><i></i>Rules backtest</span>
         <span class="benchmark"><i></i>S&amp;P 500 (SPY)</span>
       </div>
@@ -3486,11 +3486,7 @@ HOME_TEMPLATE = """
   })).filter(row => Number.isFinite(row.strategy) && Number.isFinite(row.benchmark));
   if (allRows.length < 2) return;
   const ownerSnapshotRaw = payload.owner_snapshot || {};
-  const ownerSnapshotDate = new Date(String(ownerSnapshotRaw.as_of || '') + 'T00:00:00Z');
   const ownerSnapshotReturn = Number(ownerSnapshotRaw.return_pct);
-  const ownerSnapshot = Number.isFinite(ownerSnapshotDate.getTime()) && Number.isFinite(ownerSnapshotReturn)
-    ? { date: ownerSnapshotDate, dateLabel: String(ownerSnapshotRaw.as_of), returnPct: ownerSnapshotReturn }
-    : null;
   const ownerCurve = (payload.owner_curve || []).map(point => ({
     date: new Date(String(point.date || '') + 'T00:00:00Z'),
     dateLabel: String(point.date || ''),
@@ -3500,13 +3496,39 @@ HOME_TEMPLATE = """
     allocationPct: point.allocation_pct === null || point.allocation_pct === undefined ? null : Number(point.allocation_pct),
     signalReturnPct: point.signal_return_pct === null || point.signal_return_pct === undefined ? null : Number(point.signal_return_pct)
   })).filter(point => Number.isFinite(point.date.getTime()) && Number.isFinite(point.returnPct));
-  const ownerLatest = ownerCurve.length ? ownerCurve[ownerCurve.length - 1] : ownerSnapshot;
   const benchmarkYtdRows = (payload.benchmark_ytd_points || []).map(point => ({
     date: new Date(String(point[0] || '') + 'T00:00:00Z'),
     dateLabel: String(point[0] || ''),
     returnPct: Number(point[1])
   })).filter(point => Number.isFinite(point.date.getTime()) && Number.isFinite(point.returnPct));
   const benchmarkYtdLatest = benchmarkYtdRows.length ? benchmarkYtdRows[benchmarkYtdRows.length - 1] : null;
+  const latestPointAtOrBefore = (rows, date) => {
+    let selected = null;
+    for (const row of rows) {
+      if (row.date.getTime() <= date.getTime()) selected = row;
+      else break;
+    }
+    return selected;
+  };
+  const comparisonDates = new Set(benchmarkYtdRows.map(row => row.dateLabel));
+  if (benchmarkYtdLatest) {
+    ownerCurve.forEach(point => {
+      if (point.date.getTime() <= benchmarkYtdLatest.date.getTime()) comparisonDates.add(point.dateLabel);
+    });
+  }
+  const ownerBenchmarkRows = Array.from(comparisonDates).sort().map(dateLabel => {
+    const date = new Date(dateLabel + 'T00:00:00Z');
+    const ownerPoint = latestPointAtOrBefore(ownerCurve, date);
+    const benchmarkPoint = latestPointAtOrBefore(benchmarkYtdRows, date);
+    if (!ownerPoint || !benchmarkPoint) return null;
+    return {
+      date,
+      dateLabel,
+      ownerCumulative: ownerPoint.returnPct,
+      benchmarkCumulative: benchmarkPoint.returnPct,
+      ownerEvent: ownerPoint.dateLabel === dateLabel
+    };
+  }).filter(Boolean);
 
   const ctx = canvas.getContext('2d');
   const tooltip = document.querySelector('[data-performance-tooltip]');
@@ -3550,9 +3572,9 @@ HOME_TEMPLATE = """
     node.classList.toggle('neg', value < 0);
   };
 
-  const rangeStartIndex = range => {
-    if (range === '1D') return Math.max(0, allRows.length - 2);
-    const end = allRows[allRows.length - 1].date;
+  const rangeStartIndex = (rows, range) => {
+    if (range === '1D') return Math.max(0, rows.length - 2);
+    const end = rows[rows.length - 1].date;
     let cutoff;
     if (range === 'YTD') {
       cutoff = new Date(Date.UTC(end.getUTCFullYear(), 0, 1));
@@ -3561,23 +3583,43 @@ HOME_TEMPLATE = """
       cutoff = new Date(end.getTime() - days * 86400000);
     }
     let index = 0;
-    for (let i = 0; i < allRows.length; i += 1) {
-      if (allRows[i].date <= cutoff) index = i;
+    for (let i = 0; i < rows.length; i += 1) {
+      if (rows[i].date <= cutoff) index = i;
       else break;
     }
     return index;
   };
 
-  const selectRows = range => {
-    const sourceRows = allRows.slice(rangeStartIndex(range));
+  const selectBacktestRows = range => {
+    const sourceRows = allRows.slice(rangeStartIndex(allRows, range));
     const strategyBase = sourceRows[0].strategy;
     const benchmarkBase = sourceRows[0].benchmark;
     return sourceRows.map(row => ({
       ...row,
       strategyReturn: (row.strategy / strategyBase - 1) * 100,
-      benchmarkReturn: (row.benchmark / benchmarkBase - 1) * 100
+      benchmarkReturn: (row.benchmark / benchmarkBase - 1) * 100,
+      ownerComparison: false
     }));
   };
+
+  const selectRows = range => {
+    if (ownerBenchmarkRows.length >= 2) {
+      const sourceRows = ownerBenchmarkRows.slice(rangeStartIndex(ownerBenchmarkRows, range));
+      const ownerBase = 1 + sourceRows[0].ownerCumulative / 100;
+      const benchmarkBase = 1 + sourceRows[0].benchmarkCumulative / 100;
+      return sourceRows.map(row => ({
+        ...row,
+        strategyReturn: ((1 + row.ownerCumulative / 100) / ownerBase - 1) * 100,
+        benchmarkReturn: ((1 + row.benchmarkCumulative / 100) / benchmarkBase - 1) * 100,
+        ownerComparison: true
+      }));
+    }
+    return selectBacktestRows(range);
+  };
+  const backtestYtdRows = selectBacktestRows('YTD');
+  const backtestYtdReturn = backtestYtdRows.length
+    ? backtestYtdRows[backtestYtdRows.length - 1].strategyReturn
+    : null;
 
   const drawSeries = (rows, xFor, yFor, color, width, dash = []) => {
     ctx.save();
@@ -3609,31 +3651,17 @@ HOME_TEMPLATE = """
     const padding = { top: 20, right: 17, bottom: 34, left: width < 520 ? 48 : 58 };
     const plotWidth = width - padding.left - padding.right;
     const plotHeight = height - padding.top - padding.bottom;
-    const ownerMode = activeRange === 'YTD' && ownerCurve.length && benchmarkYtdRows.length;
-    const values = ownerMode
-      ? [0, ...ownerCurve.map(point => point.returnPct), ...benchmarkYtdRows.map(point => point.returnPct)]
-      : visibleRows.flatMap(row => [row.strategyReturn, row.benchmarkReturn]);
-    let minValue;
-    let maxValue;
-    if (ownerMode) {
-      const comparisonMin = Math.min(...values);
-      const comparisonMax = Math.max(...values);
-      const comparisonSpread = Math.max(10, comparisonMax - comparisonMin);
-      minValue = comparisonMin - comparisonSpread * .08;
-      maxValue = comparisonMax + comparisonSpread * .1;
-    } else {
-      minValue = Math.min(0, ...values);
-      maxValue = Math.max(0, ...values);
-      const comparisonSpread = Math.max(1, maxValue - minValue);
-      minValue -= comparisonSpread * .12;
-      maxValue += comparisonSpread * .12;
-    }
+    const ownerMode = visibleRows[0]?.ownerComparison === true;
+    const values = visibleRows.flatMap(row => [row.strategyReturn, row.benchmarkReturn]);
+    let minValue = Math.min(0, ...values);
+    let maxValue = Math.max(0, ...values);
+    const comparisonSpread = Math.max(1, maxValue - minValue);
+    minValue -= comparisonSpread * .12;
+    maxValue += comparisonSpread * .12;
     const spread = Math.max(1, maxValue - minValue);
-    const startTime = ownerMode ? benchmarkYtdRows[0].date.getTime() : visibleRows[0].date.getTime();
+    const startTime = visibleRows[0].date.getTime();
     const dataEndTime = visibleRows[visibleRows.length - 1].date.getTime();
-    const ownerEndTime = ownerLatest ? ownerLatest.date.getTime() : dataEndTime;
-    const benchmarkYtdEndTime = benchmarkYtdLatest ? benchmarkYtdLatest.date.getTime() : dataEndTime;
-    const endTime = ownerMode ? Math.max(ownerEndTime, benchmarkYtdEndTime) : dataEndTime;
+    const endTime = dataEndTime;
     const timeSpan = Math.max(1, endTime - startTime);
     const xForDate = date => padding.left + (date.getTime() - startTime) / timeSpan * plotWidth;
     const xFor = index => xForDate(visibleRows[index].date);
@@ -3681,27 +3709,23 @@ HOME_TEMPLATE = """
       drawSeries(visibleRows, xFor, strategyY, '#00ec9f', 2.2);
     } else {
       const zeroY = yValue(0);
-      const benchmarkFill = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
-      benchmarkFill.addColorStop(0, 'rgba(75, 163, 255, .18)');
-      benchmarkFill.addColorStop(1, 'rgba(75, 163, 255, 0)');
+      const ownerFill = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
+      ownerFill.addColorStop(0, 'rgba(215, 255, 125, .16)');
+      ownerFill.addColorStop(1, 'rgba(215, 255, 125, 0)');
       ctx.beginPath();
-      benchmarkYtdRows.forEach((row, index) => {
-        const x = xForDate(row.date);
-        const y = yValue(row.returnPct);
+      visibleRows.forEach((row, index) => {
+        const x = xFor(index);
+        const y = strategyY(row);
         if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
-      ctx.lineTo(xForDate(benchmarkYtdLatest.date), zeroY);
-      ctx.lineTo(xForDate(benchmarkYtdRows[0].date), zeroY);
+      ctx.lineTo(xFor(visibleRows.length - 1), zeroY);
+      ctx.lineTo(xFor(0), zeroY);
       ctx.closePath();
-      ctx.fillStyle = benchmarkFill;
+      ctx.fillStyle = ownerFill;
       ctx.fill();
-      drawSeries(
-        benchmarkYtdRows,
-        index => xForDate(benchmarkYtdRows[index].date),
-        row => yValue(row.returnPct),
-        '#4ba3ff',
-        2.2
-      );
+
+      drawSeries(visibleRows, xFor, benchmarkY, '#4ba3ff', 2.1);
+      drawSeries(visibleRows, xFor, strategyY, '#d7ff7d', 2.5);
     }
 
     const labelIndexes = [0, Math.floor((visibleRows.length - 1) / 2), visibleRows.length - 1];
@@ -3709,124 +3733,52 @@ HOME_TEMPLATE = """
     ctx.font = "8px 'JetBrains Mono', monospace";
     ctx.fillStyle = '#647078';
     ctx.textBaseline = 'bottom';
-    if (ownerMode) {
-      const benchmarkLabelIndexes = [0, Math.floor((benchmarkYtdRows.length - 1) / 2), benchmarkYtdRows.length - 1];
-      benchmarkLabelIndexes.forEach((index, position) => {
-        const point = benchmarkYtdRows[index];
-        ctx.textAlign = position === 0 ? 'left' : (position === 2 ? 'right' : 'center');
-        ctx.fillText(point.dateLabel, xForDate(point.date), height - 8);
-      });
-    } else {
-      labelIndexes.forEach((index, position) => {
-        ctx.textAlign = position === 0 ? 'left' : (position === 2 ? 'right' : 'center');
-        ctx.fillText(visibleRows[index].dateLabel, xFor(index), height - 8);
-      });
-    }
+    labelIndexes.forEach((index, position) => {
+      ctx.textAlign = position === 0 ? 'left' : (position === 2 ? 'right' : 'center');
+      ctx.fillText(visibleRows[index].dateLabel, xFor(index), height - 8);
+    });
     ctx.restore();
 
     if (ownerMode) {
-      const ownerBaselinePoint = ownerCurve.find(point => point.status === 'BASELINE') || ownerSnapshot || ownerCurve[ownerCurve.length - 1];
-      const ownerBaselineX = xForDate(ownerBaselinePoint.date);
-      const ownerBaselineY = yValue(ownerBaselinePoint.returnPct);
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(ownerBaselineX, yValue(0));
-      ctx.lineTo(ownerBaselineX, ownerBaselineY);
-      ctx.strokeStyle = 'rgba(215, 255, 125, .35)';
-      ctx.lineWidth = 1.2;
-      ctx.setLineDash([5, 5]);
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.save();
-      ctx.beginPath();
-      ownerCurve.forEach((point, index) => {
-        const x = xForDate(point.date);
-        const y = yValue(point.returnPct);
-        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      });
-      ctx.strokeStyle = '#d7ff7d';
-      ctx.lineWidth = 2.4;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.shadowColor = 'rgba(199, 255, 103, .25)';
-      ctx.shadowBlur = 9;
-      ctx.stroke();
-      ctx.restore();
-
-      ownerCurve.forEach(point => {
-        if (point.status === 'HISTORY') return;
-        const x = xForDate(point.date);
-        const y = yValue(point.returnPct);
-        ctx.save();
-        if (point.status === 'BASELINE') {
-          ctx.translate(x, y);
-          ctx.rotate(Math.PI / 4);
-          ctx.fillStyle = '#d7ff7d';
-          ctx.shadowColor = 'rgba(199, 255, 103, .5)';
-          ctx.shadowBlur = 12;
-          ctx.fillRect(-5, -5, 10, 10);
-        } else {
-          ctx.beginPath();
-          ctx.arc(x, y, point.status === 'OPEN SIGNAL' ? 4 : 5, 0, Math.PI * 2);
-          ctx.fillStyle = point.status === 'OPEN SIGNAL' ? '#071014' : '#d7ff7d';
-          ctx.fill();
-          ctx.strokeStyle = '#d7ff7d';
-          ctx.lineWidth = 1.8;
-          ctx.stroke();
-        }
-        ctx.restore();
+      visibleRows.forEach((row, index) => {
+        if (!row.ownerEvent || index === 0) return;
+        ctx.beginPath();
+        ctx.arc(xFor(index), strategyY(row), 2.6, 0, Math.PI * 2);
+        ctx.fillStyle = '#071014';
+        ctx.fill();
+        ctx.strokeStyle = '#d7ff7d';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
       });
 
-      const latestOwner = ownerCurve[ownerCurve.length - 1];
-      const latestX = xForDate(latestOwner.date);
-      const latestY = yValue(latestOwner.returnPct);
+      const latestOwner = visibleRows[visibleRows.length - 1];
+      const latestX = xFor(visibleRows.length - 1);
+      const latestY = strategyY(latestOwner);
       ctx.save();
       ctx.font = "600 10px 'JetBrains Mono', monospace";
       ctx.fillStyle = '#d7ff7d';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(`Owner model ${signedPercent(latestOwner.returnPct)}`, latestX - 10, Math.max(14, latestY - 8));
+      ctx.fillText(`Owner ${signedPercent(latestOwner.strategyReturn)}`, latestX - 8, Math.max(14, latestY - 8));
       ctx.restore();
 
-      const benchmarkLatestX = xForDate(benchmarkYtdLatest.date);
-      const benchmarkLatestY = yValue(benchmarkYtdLatest.returnPct);
+      const benchmarkLatestX = latestX;
+      const benchmarkLatestY = benchmarkY(latestOwner);
+      const labelsAreClose = Math.abs(latestY - benchmarkLatestY) < 24;
       ctx.save();
       ctx.font = "600 10px 'JetBrains Mono', monospace";
       ctx.fillStyle = '#75baff';
       ctx.textAlign = 'right';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(`S&P 500 ${signedPercent(benchmarkYtdLatest.returnPct)}`, benchmarkLatestX - 10, Math.max(14, benchmarkLatestY - 8));
-      ctx.restore();
-    } else if (activeRange === 'YTD' && ownerSnapshot) {
-      const snapshotX = xForDate(ownerSnapshot.date);
-      const snapshotY = yValue(ownerSnapshot.returnPct);
-      ctx.save();
-      ctx.translate(snapshotX, snapshotY);
-      ctx.rotate(Math.PI / 4);
-      ctx.fillStyle = '#d7ff7d';
-      ctx.fillRect(-5, -5, 10, 10);
+      ctx.textBaseline = labelsAreClose ? 'top' : 'bottom';
+      ctx.fillText(
+        `S&P 500 ${signedPercent(latestOwner.benchmarkReturn)}`,
+        benchmarkLatestX - 8,
+        labelsAreClose ? Math.min(height - 34, benchmarkLatestY + 8) : Math.max(14, benchmarkLatestY - 8)
+      );
       ctx.restore();
     }
 
-    if (ownerMode && hoverIndex !== null && benchmarkYtdRows[hoverIndex]) {
-      const point = benchmarkYtdRows[hoverIndex];
-      const x = xForDate(point.date);
-      const y = yValue(point.returnPct);
-      ctx.beginPath();
-      ctx.moveTo(x, padding.top);
-      ctx.lineTo(x, padding.top + plotHeight);
-      ctx.strokeStyle = 'rgba(75,163,255,.22)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = '#071014';
-      ctx.fill();
-      ctx.strokeStyle = '#4ba3ff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    } else if (hoverIndex !== null && visibleRows[hoverIndex]) {
+    if (hoverIndex !== null && visibleRows[hoverIndex]) {
       const row = visibleRows[hoverIndex];
       const x = xFor(hoverIndex);
       ctx.beginPath();
@@ -3835,7 +3787,7 @@ HOME_TEMPLATE = """
       ctx.strokeStyle = 'rgba(255,255,255,.18)';
       ctx.lineWidth = 1;
       ctx.stroke();
-      [[strategyY(row), '#00ec9f'], [benchmarkY(row), '#4ba3ff']].forEach(([y, color]) => {
+      [[strategyY(row), ownerMode ? '#d7ff7d' : '#00ec9f'], [benchmarkY(row), '#4ba3ff']].forEach(([y, color]) => {
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
         ctx.fillStyle = '#071014';
@@ -3855,21 +3807,22 @@ HOME_TEMPLATE = """
     const latest = visibleRows[visibleRows.length - 1];
     const strategyReturn = latest.strategyReturn;
     const benchmarkReturn = latest.benchmarkReturn;
-    paintMetric(strategyMetric, strategyReturn);
-    paintMetric(benchmarkMetric, benchmarkReturn);
-    paintMetric(alphaMetric, strategyReturn - benchmarkReturn);
-    if (ownerMetric && ownerLatest) paintMetric(ownerMetric, ownerLatest.returnPct);
-    const ownerMode = range === 'YTD' && ownerCurve.length && benchmarkYtdRows.length;
+    const ownerMode = latest.ownerComparison === true;
+    if (Number.isFinite(backtestYtdReturn)) paintMetric(strategyMetric, backtestYtdReturn);
     if (ownerMode) {
-      paintMetric(benchmarkMetric, benchmarkYtdLatest.returnPct);
-      paintMetric(alphaMetric, ownerLatest.returnPct - benchmarkYtdLatest.returnPct);
+      if (ownerMetric) paintMetric(ownerMetric, strategyReturn);
+      paintMetric(benchmarkMetric, benchmarkReturn);
+      paintMetric(alphaMetric, strategyReturn - benchmarkReturn);
       if (alphaLabel) alphaLabel.textContent = 'Portfolio vs S&P';
-      if (alphaHelp) alphaHelp.textContent = 'Owner snapshot minus SPY YTD';
-      windowLabel.textContent = `YTD comparison · ${benchmarkYtdRows[0].dateLabel} to ${benchmarkYtdLatest.dateLabel}`;
-      canvas.setAttribute('aria-label', `Owner portfolio reconstructed YTD line ends at ${signedPercent(ownerLatest.returnPct)}, compared with ${signedPercent(benchmarkYtdLatest.returnPct)} for the S&P 500 YTD.`);
-      if (performanceRisk) performanceRisk.textContent = `Portfolio comparison: reconstructed Trading 212 closed-trade path anchored to the owner-reported ${signedPercent(ownerSnapshotReturn)} YTD result, plus forward bot continuation, versus the full SPY adjusted-close YTD curve.`;
-      if (performanceAsOf) performanceAsOf.textContent = `Owner history begins ${ownerCurve[0].dateLabel} · SPY through ${benchmarkYtdLatest.dateLabel}`;
+      if (alphaHelp) alphaHelp.textContent = 'Owner portfolio minus SPY for the selected period';
+      windowLabel.textContent = `${rangeNames[range]} comparison · ${visibleRows[0].dateLabel} to ${latest.dateLabel}`;
+      canvas.setAttribute('aria-label', `For ${rangeNames[range]}, the reconstructed owner portfolio returned ${signedPercent(strategyReturn)} compared with ${signedPercent(benchmarkReturn)} for the S&P 500.`);
+      if (performanceRisk) performanceRisk.textContent = `Portfolio comparison: ${rangeNames[range]} return from the reconstructed Trading 212 closed-trade path versus SPY. The owner path is anchored to the owner-reported ${signedPercent(ownerSnapshotReturn)} YTD result and is not a daily brokerage equity curve.`;
+      if (performanceAsOf) performanceAsOf.textContent = `Selected range ${visibleRows[0].dateLabel} to ${latest.dateLabel} · common owner and SPY dates`;
     } else {
+      paintMetric(strategyMetric, strategyReturn);
+      paintMetric(benchmarkMetric, benchmarkReturn);
+      paintMetric(alphaMetric, strategyReturn - benchmarkReturn);
       if (alphaLabel) alphaLabel.textContent = 'Backtest excess';
       if (alphaHelp) alphaHelp.textContent = 'Rules backtest minus benchmark';
       windowLabel.textContent = `${rangeNames[range]} · ${visibleRows[0].dateLabel} to ${latest.dateLabel}`;
@@ -3895,8 +3848,8 @@ HOME_TEMPLATE = """
     const leftPadding = rect.width < 520 ? 48 : 58;
     const plotWidth = rect.width - leftPadding - 17;
     const localX = Math.max(0, Math.min(plotWidth, event.clientX - rect.left - leftPadding));
-    const ownerMode = activeRange === 'YTD' && ownerCurve.length && benchmarkYtdRows.length;
-    const hoverRows = ownerMode ? benchmarkYtdRows : visibleRows;
+    const ownerMode = visibleRows[0]?.ownerComparison === true;
+    const hoverRows = visibleRows;
     const startTime = hoverRows[0].date.getTime();
     const endTime = hoverRows[hoverRows.length - 1].date.getTime();
     const hoveredTime = startTime + (localX / Math.max(1, plotWidth)) * Math.max(1, endTime - startTime);
@@ -3909,10 +3862,8 @@ HOME_TEMPLATE = """
     if (!row) return;
     tooltipDate.textContent = dateFormatter.format(row.date);
     if (ownerMode) {
-      const availableOwnerPoints = ownerCurve.filter(point => point.date.getTime() <= row.date.getTime());
-      const availableOwner = availableOwnerPoints.length ? availableOwnerPoints[availableOwnerPoints.length - 1] : null;
-      tooltipOwner.textContent = availableOwner ? signedPercent(availableOwner.returnPct) : 'Starts Jan 1';
-      tooltipBenchmark.textContent = signedPercent(row.returnPct);
+      tooltipOwner.textContent = signedPercent(row.strategyReturn);
+      tooltipBenchmark.textContent = signedPercent(row.benchmarkReturn);
     } else {
       tooltipStrategy.textContent = signedPercent(row.strategyReturn);
       tooltipBenchmark.textContent = signedPercent(row.benchmarkReturn);
