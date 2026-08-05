@@ -321,7 +321,7 @@ def _normalized_public_date(value):
 
 
 def load_public_ytd_snapshot():
-    """Load the owner-supplied YTD headline and percentage-only trade events.
+    """Load the owner-supplied YTD headline, curve and trade events.
 
     The JSON is deliberately a one-way privacy boundary: only dates, tickers,
     statuses and percentage returns are accepted. Account values, share counts,
@@ -365,16 +365,35 @@ def load_public_ytd_snapshot():
             "source_label": "Trading 212 closed",
         })
 
+    owner_curve_by_date = {}
+    for raw_point in raw.get("owner_curve", []):
+        if not isinstance(raw_point, dict):
+            continue
+        date = _normalized_public_date(raw_point.get("date"))
+        return_pct = _finite_number(raw_point.get("return_pct"), 2)
+        if not date or not date.startswith(f"{year}-") or return_pct is None:
+            continue
+        owner_curve_by_date[date] = {
+            "date": date,
+            "return_pct": return_pct,
+        }
+    owner_curve = [owner_curve_by_date[date] for date in sorted(owner_curve_by_date)]
+    if owner_curve and owner_curve[-1]["date"] <= as_of:
+        owner_curve_by_date[as_of] = {
+            "date": as_of,
+            "return_pct": ytd_return,
+        }
+        owner_curve = [owner_curve_by_date[date] for date in sorted(owner_curve_by_date)]
+
     return {
         "period": "YTD",
         "year": year,
         "as_of": as_of,
         "ytd_return_pct": ytd_return,
         "return_label": "Owner-reported Trading 212 YTD",
-        "methodology_note": (
-            "Point-in-time account return supplied by the owner; the export "
-            "does not contain a daily equity curve."
-        ),
+        "methodology_note": str(raw.get("methodology_note") or "").strip(),
+        "curve_method": str(raw.get("curve_method") or "").strip(),
+        "owner_curve": owner_curve,
         "trade_events": events,
     }
 
@@ -534,14 +553,25 @@ def build_owner_portfolio_continuation(snapshot, ledger):
     baseline_return = float(snapshot["ytd_return_pct"])
     baseline_growth = 1.0 + baseline_return / 100.0
     continuation_growth = 1.0
-    points = [{
-        "date": baseline_date,
-        "return_pct": round(baseline_return, 2),
-        "ticker": "",
-        "status": "BASELINE",
-        "allocation_pct": None,
-        "signal_return_pct": None,
-    }]
+    points = []
+    for historical_point in snapshot.get("owner_curve") or []:
+        points.append({
+            "date": historical_point["date"],
+            "return_pct": historical_point["return_pct"],
+            "ticker": "",
+            "status": "BASELINE" if historical_point["date"] == baseline_date else "HISTORY",
+            "allocation_pct": None,
+            "signal_return_pct": None,
+        })
+    if not points or points[-1]["date"] != baseline_date:
+        points.append({
+            "date": baseline_date,
+            "return_pct": round(baseline_return, 2),
+            "ticker": "",
+            "status": "BASELINE",
+            "allocation_pct": None,
+            "signal_return_pct": None,
+        })
 
     bot_events = [
         event for event in ledger["events"]
@@ -3062,7 +3092,7 @@ HOME_TEMPLATE = """
       {% if ytd_snapshot %}
       <div class="performance-methodology" id="performance-methodology">
         <span class="performance-methodology-mark" aria-hidden="true"></span>
-        <p><strong>How to read the chart:</strong> the line begins at the {{ ytd_snapshot.ytd_return_pct }}% owner-reported YTD baseline on {{ ytd_snapshot.as_of }}. New bot signals are added as markers. Open signals do not change performance; after a signal resolves, its published model-allocation percentage multiplied by its percentage gain or loss updates the continuation. Signals without a published allocation remain markers only. This percentage-only continuation is not a live brokerage balance. The green line is the separate hypothetical rules backtest; the blue line is SPY. Not financial advice. Trade at your own risk.</p>
+        <p><strong>How to read the chart:</strong> the lime line reconstructs the owner portfolio path from dated closed-trade results and dividends in the supplied Trading 212 export, normalized to the owner-reported {{ ytd_snapshot.ytd_return_pct }}% YTD result on {{ ytd_snapshot.as_of }}. It is not a daily brokerage equity curve. New bot signals are added as markers. Open signals do not change performance; after a signal resolves, its published model-allocation percentage multiplied by its percentage gain or loss updates the continuation. Signals without a published allocation remain markers only. The blue line is SPY. Not financial advice. Trade at your own risk.</p>
       </div>
       {% endif %}
     </div>
@@ -3695,8 +3725,9 @@ HOME_TEMPLATE = """
     ctx.restore();
 
     if (ownerMode) {
-      const ownerBaselineX = xForDate(ownerCurve[0].date);
-      const ownerBaselineY = yValue(ownerCurve[0].returnPct);
+      const ownerBaselinePoint = ownerCurve.find(point => point.status === 'BASELINE') || ownerSnapshot || ownerCurve[ownerCurve.length - 1];
+      const ownerBaselineX = xForDate(ownerBaselinePoint.date);
+      const ownerBaselineY = yValue(ownerBaselinePoint.returnPct);
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(ownerBaselineX, yValue(0));
@@ -3723,11 +3754,12 @@ HOME_TEMPLATE = """
       ctx.stroke();
       ctx.restore();
 
-      ownerCurve.forEach((point, index) => {
+      ownerCurve.forEach(point => {
+        if (point.status === 'HISTORY') return;
         const x = xForDate(point.date);
         const y = yValue(point.returnPct);
         ctx.save();
-        if (index === 0) {
+        if (point.status === 'BASELINE') {
           ctx.translate(x, y);
           ctx.rotate(Math.PI / 4);
           ctx.fillStyle = '#d7ff7d';
@@ -3834,8 +3866,8 @@ HOME_TEMPLATE = """
       if (alphaLabel) alphaLabel.textContent = 'Portfolio vs S&P';
       if (alphaHelp) alphaHelp.textContent = 'Owner snapshot minus SPY YTD';
       windowLabel.textContent = `YTD comparison · ${benchmarkYtdRows[0].dateLabel} to ${benchmarkYtdLatest.dateLabel}`;
-      canvas.setAttribute('aria-label', `Owner portfolio YTD is ${signedPercent(ownerLatest.returnPct)} from an owner-reported baseline on ${ownerSnapshotRaw.as_of}, compared with ${signedPercent(benchmarkYtdLatest.returnPct)} for the S&P 500 YTD.`);
-      if (performanceRisk) performanceRisk.textContent = `Portfolio comparison: owner-reported ${signedPercent(ownerSnapshotReturn)} snapshot and forward bot continuation versus the full SPY adjusted-close YTD curve.`;
+      canvas.setAttribute('aria-label', `Owner portfolio reconstructed YTD line ends at ${signedPercent(ownerLatest.returnPct)}, compared with ${signedPercent(benchmarkYtdLatest.returnPct)} for the S&P 500 YTD.`);
+      if (performanceRisk) performanceRisk.textContent = `Portfolio comparison: reconstructed Trading 212 closed-trade path anchored to the owner-reported ${signedPercent(ownerSnapshotReturn)} YTD result, plus forward bot continuation, versus the full SPY adjusted-close YTD curve.`;
       if (performanceAsOf) performanceAsOf.textContent = `Owner history begins ${ownerCurve[0].dateLabel} · SPY through ${benchmarkYtdLatest.dateLabel}`;
     } else {
       if (alphaLabel) alphaLabel.textContent = 'Backtest excess';
@@ -3879,7 +3911,7 @@ HOME_TEMPLATE = """
     if (ownerMode) {
       const availableOwnerPoints = ownerCurve.filter(point => point.date.getTime() <= row.date.getTime());
       const availableOwner = availableOwnerPoints.length ? availableOwnerPoints[availableOwnerPoints.length - 1] : null;
-      tooltipOwner.textContent = availableOwner ? signedPercent(availableOwner.returnPct) : 'Starts Jul 30';
+      tooltipOwner.textContent = availableOwner ? signedPercent(availableOwner.returnPct) : 'Starts Jan 1';
       tooltipBenchmark.textContent = signedPercent(row.returnPct);
     } else {
       tooltipStrategy.textContent = signedPercent(row.strategyReturn);

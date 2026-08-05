@@ -4,7 +4,138 @@
   "as_of": "2026-07-30",
   "ytd_return_pct": 85.0,
   "return_label": "Owner-reported Trading 212 YTD",
-  "methodology_note": "Point-in-time account return supplied by the owner; the export does not contain a daily equity curve.",
+  "methodology_note": "Owner-reported +85.00% YTD result. The displayed path is reconstructed from the dates and relative sizes of closed-trade results and dividends in the supplied Trading 212 export, then normalized to the owner-reported total; it is not a daily brokerage equity curve.",
+  "curve_method": "normalized_closed_trade_profit_path",
+  "owner_curve": [
+    {
+      "date": "2026-01-01",
+      "return_pct": 0.0
+    },
+    {
+      "date": "2026-01-28",
+      "return_pct": 0.5
+    },
+    {
+      "date": "2026-01-29",
+      "return_pct": 1.01
+    },
+    {
+      "date": "2026-02-17",
+      "return_pct": 1.53
+    },
+    {
+      "date": "2026-02-26",
+      "return_pct": 1.37
+    },
+    {
+      "date": "2026-03-18",
+      "return_pct": 19.43
+    },
+    {
+      "date": "2026-04-06",
+      "return_pct": 21.08
+    },
+    {
+      "date": "2026-04-08",
+      "return_pct": 21.37
+    },
+    {
+      "date": "2026-04-13",
+      "return_pct": 25.01
+    },
+    {
+      "date": "2026-04-17",
+      "return_pct": 29.52
+    },
+    {
+      "date": "2026-04-20",
+      "return_pct": 30.4
+    },
+    {
+      "date": "2026-04-22",
+      "return_pct": 35.16
+    },
+    {
+      "date": "2026-04-23",
+      "return_pct": 37.27
+    },
+    {
+      "date": "2026-04-30",
+      "return_pct": 37.55
+    },
+    {
+      "date": "2026-05-05",
+      "return_pct": 40.77
+    },
+    {
+      "date": "2026-05-07",
+      "return_pct": 41.37
+    },
+    {
+      "date": "2026-05-08",
+      "return_pct": 41.52
+    },
+    {
+      "date": "2026-06-03",
+      "return_pct": 41.54
+    },
+    {
+      "date": "2026-06-04",
+      "return_pct": 42.45
+    },
+    {
+      "date": "2026-06-05",
+      "return_pct": 42.47
+    },
+    {
+      "date": "2026-06-08",
+      "return_pct": 42.94
+    },
+    {
+      "date": "2026-06-11",
+      "return_pct": 46.42
+    },
+    {
+      "date": "2026-06-12",
+      "return_pct": 64.66
+    },
+    {
+      "date": "2026-06-25",
+      "return_pct": 65.03
+    },
+    {
+      "date": "2026-07-01",
+      "return_pct": 65.06
+    },
+    {
+      "date": "2026-07-02",
+      "return_pct": 67.87
+    },
+    {
+      "date": "2026-07-14",
+      "return_pct": 69.8
+    },
+    {
+      "date": "2026-07-16",
+      "return_pct": 70.77
+    },
+    {
+      "date": "2026-07-21",
+      "return_pct": 72.27
+    },
+    {
+      "date": "2026-07-23",
+      "return_pct": 73.33
+    },
+    {
+      "date": "2026-07-29",
+      "return_pct": 85.0
+    },
+    {
+      "date": "2026-07-30",
+      "return_pct": 85.0
+    }
+  ],
   "trade_events": [
     {
       "date": "2026-07-29",
