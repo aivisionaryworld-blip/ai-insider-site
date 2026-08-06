@@ -827,6 +827,11 @@ BASE_CSS = """
   /* motion */
   --ease: cubic-bezier(.22,.9,.32,1);
   --ease-out: cubic-bezier(.16,1,.3,1);
+
+  /* moving background blobs — the site's original three-color mesh */
+  --bg-blob-1: #a8e063;
+  --bg-blob-2: #edbd62;
+  --bg-blob-3: #5f7de8;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -856,11 +861,7 @@ ul { margin: 0; }
    ------------------------------------------------------------ */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background:
-    radial-gradient(1200px 700px at 18% -8%, rgba(0,224,255,.10), transparent 60%),
-    radial-gradient(1000px 640px at 100% 8%, rgba(215,255,125,.06), transparent 55%),
-    radial-gradient(900px 900px at 50% 115%, rgba(0,236,159,.06), transparent 60%),
-    var(--bg);
+  background: var(--bg);
 }
 body::after {
   content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
@@ -872,13 +873,13 @@ body::after {
   -webkit-mask-image: radial-gradient(1100px 700px at 50% 0%, #000 0%, transparent 72%);
 }
 .bg-mesh { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.bg-mesh span { position: absolute; border-radius: 50%; filter: blur(120px); opacity: .22; }
-.bg-mesh .b1 { width: 560px; height: 560px; background: var(--accent); top: -220px; left: -140px; animation: drift1 26s ease-in-out infinite; }
-.bg-mesh .b2 { width: 460px; height: 460px; background: var(--lime); top: 14%; right: -160px; animation: drift2 30s ease-in-out infinite; opacity: .14; }
-.bg-mesh .b3 { width: 420px; height: 420px; background: var(--green); bottom: -160px; left: 32%; animation: drift3 34s ease-in-out infinite; opacity: .14; }
-@keyframes drift1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(70px,90px); } }
-@keyframes drift2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-80px,60px); } }
-@keyframes drift3 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(60px,-70px); } }
+.bg-mesh span { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .18; }
+.bg-mesh .b1 { width: 480px; height: 480px; background: var(--bg-blob-1); top: -160px; left: -100px; animation: drift1 22s ease-in-out infinite; }
+.bg-mesh .b2 { width: 420px; height: 420px; background: var(--bg-blob-2); top: 20%; right: -140px; animation: drift2 26s ease-in-out infinite; }
+.bg-mesh .b3 { width: 380px; height: 380px; background: var(--bg-blob-3); bottom: -120px; left: 30%; animation: drift3 30s ease-in-out infinite; }
+@keyframes drift1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(60px,80px); } }
+@keyframes drift2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-70px,50px); } }
+@keyframes drift3 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(50px,-60px); } }
 
 /* ------------------------------------------------------------
    buttons
