@@ -1988,6 +1988,18 @@ nav {
   backdrop-filter: blur(24px) saturate(135%);
   -webkit-backdrop-filter: blur(24px) saturate(135%);
 }
+/* The glass-card rules above group .filings-table-wrap with the cards and set
+   `overflow: hidden`, which silently overrode the `overflow-x: auto` declared
+   where the wrapper is first defined. The table was therefore CLIPPED, not
+   scrollable: at 375px wide, 382px of it — over half — was unreachable.
+   The cards need the clipping for their ::before accent bar; the table wrapper
+   has no ::before, so it never did. Restore horizontal scrolling here, after
+   the card rules, and keep the vertical axis clipped for the border radius. */
+.filings-table-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;   /* momentum scrolling on iOS */
+}
 .trade-card:hover {
   border-color: rgba(119, 217, 255, .2);
   box-shadow:
