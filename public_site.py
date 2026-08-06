@@ -751,14 +751,14 @@ def load_live_track_record():
 # ── shared design system ────────────────────────────────────────
 
 BASE_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ============================================================
    AI INSIDER — design system
    One token set, one cascade. Void-black terminal aesthetic:
    glass surfaces, a signal-triad accent palette (cyan / green /
    lime) that matches the chart-drawing JS exactly, tabular-nums
-   mono for every number, Space Grotesk for display type.
+   mono for every number, one restrained Inter weight scale for display type.
    ============================================================ */
 
 :root {
@@ -845,7 +845,7 @@ body {
   text-rendering: optimizeLegibility;
 }
 .mono, .mono * { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-h1, h2, h3 { font-family: 'Space Grotesk', 'Inter', sans-serif; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+h1, h2, h3 { font-family: 'Inter', -apple-system, sans-serif; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 h1 { letter-spacing: -.03em; }
 h2 { letter-spacing: -.022em; }
 h4 { margin: 0; font-family: 'Inter', sans-serif; }
@@ -952,7 +952,7 @@ nav {
 .ticker-item .t-rating.B { color: var(--b); }
 
 .nav-shell { display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; }
-.brand { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 9px; letter-spacing: -.01em; }
+.brand { font-family: 'Inter', -apple-system, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 9px; letter-spacing: -.01em; }
 .brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
 .brand-mark {
   display: inline-flex; align-items: center; justify-content: center;
@@ -998,7 +998,7 @@ nav {
 .signal-toast-accent { width: 4px; flex-shrink: 0; background: linear-gradient(180deg, var(--accent), var(--green)); }
 .signal-toast-body { padding: 14px 16px; flex: 1; min-width: 0; }
 .signal-toast-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--accent); font-weight: 700; }
-.signal-toast-body h3 { font-family: 'Space Grotesk', sans-serif; font-size: 15px; margin: 6px 0 4px; }
+.signal-toast-body h3 { font-family: 'Inter', -apple-system, sans-serif; font-size: 15px; margin: 6px 0 4px; }
 .signal-toast-body p { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
 .signal-toast-actions { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
 .signal-toast-link { color: var(--accent); font-size: 12.5px; font-weight: 700; }
@@ -1060,7 +1060,7 @@ nav {
 }
 .monitor-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--border-hair); margin-bottom: 8px; }
 .monitor-kicker { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
-.monitor-head strong { font-family: 'Space Grotesk', sans-serif; font-size: 16px; }
+.monitor-head strong { font-family: 'Inter', -apple-system, sans-serif; font-size: 16px; }
 .monitor-live {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
   color: var(--green); background: var(--green-dim); border: 1px solid rgba(0,236,159,.28);
@@ -1114,7 +1114,7 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 }
 .performance-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
 .performance-heading .eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
-.performance-heading h2 { font-size: 25px; margin-top: 8px; font-family: 'Space Grotesk', sans-serif; }
+.performance-heading h2 { font-size: 25px; margin-top: 8px; font-family: 'Inter', -apple-system, sans-serif; }
 .performance-heading p { color: var(--text-2); font-size: 14px; margin-top: 8px; max-width: 480px; }
 .performance-badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
 .performance-badge {
@@ -1138,7 +1138,7 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 .performance-chart-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .performance-window-label { display: flex; flex-direction: column; gap: 2px; }
 .performance-window-label span { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
-.performance-window-label strong { font-family: 'Space Grotesk', sans-serif; font-size: 15px; }
+.performance-window-label strong { font-family: 'Inter', -apple-system, sans-serif; font-size: 15px; }
 .performance-ranges { display: inline-flex; gap: 3px; background: var(--surface-solid); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
 .performance-range {
   font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--text-2);
@@ -1185,7 +1185,7 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 /* ytd trade ledger table (inside dashboard) */
 .ytd-ledger { margin-top: 30px; padding-top: 26px; border-top: 1px solid var(--border-hair); }
 .ytd-ledger-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
-.ytd-ledger-head h3 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; }
+.ytd-ledger-head h3 { font-family: 'Inter', -apple-system, sans-serif; font-size: 18px; }
 .ytd-ledger-head p { font-size: 13px; color: var(--text-3); margin-top: 6px; max-width: 420px; }
 .ytd-ledger-updated { text-align: right; font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
 .ytd-ledger-updated strong { display: block; font-family: 'JetBrains Mono', monospace; color: var(--text-2); font-size: 12.5px; text-transform: none; letter-spacing: 0; margin-top: 2px; }
@@ -1258,12 +1258,13 @@ table.filings .amt { text-align: right; }
 }
 .market-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border-hair); flex-wrap: wrap; }
 .market-panel-head span { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
-.market-panel-head strong { font-family: 'Space Grotesk', sans-serif; font-size: 15px; }
+.market-panel-head strong { font-family: 'Inter', -apple-system, sans-serif; font-size: 15px; }
 .market-delay-note { font-size: 11px; color: var(--text-3); max-width: 220px; text-align: right; }
-.tradingview-widget-container { height: 460px; }
+.tradingview-widget-container { height: 640px; }
 .tradingview-widget-container__widget { height: calc(100% - 22px); }
 .tradingview-widget-copyright { font-size: 11px; color: var(--text-3); padding: 4px 20px; }
 .tradingview-widget-copyright a { color: var(--text-3); }
+@media (max-width: 900px) { .tradingview-widget-container { height: 480px; } }
 
 .market-snapshot-list { display: flex; flex-direction: column; gap: 14px; }
 @media (max-width: 900px) { .market-snapshot-list { display: grid; grid-template-columns: 1fr 1fr; } }
@@ -1342,7 +1343,7 @@ table.filings .amt { text-align: right; }
 }
 .new-trade-alert-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .new-trade-kicker { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
-.new-trade-alert-head h3 { font-family: 'Space Grotesk', sans-serif; font-size: 21px; margin-top: 8px; }
+.new-trade-alert-head h3 { font-family: 'Inter', -apple-system, sans-serif; font-size: 21px; margin-top: 8px; }
 .new-trade-alert-head p { font-size: 13px; color: var(--text-3); margin-top: 6px; }
 .new-trade-alert-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .conviction-pill {
@@ -1406,7 +1407,7 @@ table.filings .amt { text-align: right; }
 @media (max-width: 720px) { .compare-grid { grid-template-columns: 1fr; } }
 .compare-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 28px; backdrop-filter: var(--glass-thin); -webkit-backdrop-filter: var(--glass-thin); }
 .compare-card.highlight { border-color: var(--border-strong); background: var(--surface-2); background-image: linear-gradient(180deg, rgba(0,224,255,.06), transparent 60%); box-shadow: var(--glow-accent); }
-.compare-card h3 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; margin-bottom: 16px; }
+.compare-card h3 { font-family: 'Inter', -apple-system, sans-serif; font-size: 18px; margin-bottom: 16px; }
 .compare-card ul { list-style: none; padding: 0; margin: 0; }
 .compare-card li { padding: 9px 0; color: var(--text-2); font-size: 14px; border-top: 1px solid var(--border-hair); }
 .compare-card li:first-child { border-top: none; }
@@ -1423,7 +1424,7 @@ table.filings .amt { text-align: right; }
   position: absolute; top: -12px; right: 20px; background: linear-gradient(135deg, var(--accent), var(--green)); color: #04151a;
   font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
 }
-.price-card h3 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; }
+.price-card h3 { font-family: 'Inter', -apple-system, sans-serif; font-size: 18px; }
 .price-card .desc { color: var(--text-3); font-size: 13px; margin-top: 4px; }
 .price-card .price { font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 700; margin-top: 18px; }
 .price-card .price .per { font-size: 14px; color: var(--text-3); font-weight: 400; }
