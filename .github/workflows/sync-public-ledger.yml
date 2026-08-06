@@ -266,7 +266,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- synced_bot_trade_ledger.json public_signals_current.csv public_signal_history.csv
+          [ -f synced_bot_trade_ledger.json ] && git add -- synced_bot_trade_ledger.json || true
+          [ -f public_signals_current.csv ] && git add -- public_signals_current.csv || true
+          [ -f public_signal_history.csv ] && git add -- public_signal_history.csv || true
           if git diff --cached --quiet; then
             echo "Public ledger and signal feed are already current."
             exit 0
