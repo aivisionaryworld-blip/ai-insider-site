@@ -860,10 +860,65 @@ BASE_CSS = """
   --bg-blob-1: #a8e063;
   --bg-blob-2: #edbd62;
   --bg-blob-3: #5f7de8;
+
+  --nav-bg: rgba(6,8,13,.72);
+}
+
+/* Light theme — same institutional system, same accent family, every
+   color darkened enough off white to hold AA text contrast. Toggled via
+   [data-theme] on <html>, set before first paint by THEME_INIT so there
+   is no flash of the wrong theme. */
+:root[data-theme="light"] {
+  --void: #eef1f6;
+  --bg: #f4f6fa;
+  --bg-elevated: #ffffff;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-solid: #ffffff;
+  --surface-2: rgba(236, 240, 247, 0.9);
+  --surface-3: #eef1f6;
+  --border: rgba(15, 23, 42, 0.12);
+  --border-strong: rgba(0, 120, 145, 0.4);
+  --border-hair: rgba(15, 23, 42, 0.08);
+
+  --text: #0c1524;
+  --text-2: #45516a;
+  --text-3: #6b788f;
+  --muted: #45516a;
+
+  --accent: #0089ab;
+  --accent-dim: rgba(0, 137, 171, 0.1);
+  --lime: #7a7a10;
+  --lime-dim: rgba(122, 122, 16, 0.12);
+  --green: #067a56;
+  --green-dim: rgba(6, 122, 86, 0.1);
+  --blue: #1c64d1;
+  --blue-dim: rgba(28, 100, 209, 0.1);
+  --violet: #6a51e0;
+  --amber: #a2680a;
+  --amber-dim: rgba(162, 104, 10, 0.12);
+  --red: #c62b45;
+  --red-dim: rgba(198, 43, 69, 0.1);
+
+  --aplus: var(--amber);
+  --a: var(--green);
+  --b: #4a6fa5;
+
+  --glass-fill: linear-gradient(158deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.3) 42%, rgba(255,255,255,.14) 68%, rgba(255,255,255,.4) 100%);
+  --rim: inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(15,23,42,.05), inset 1px 0 0 rgba(15,23,42,.03), inset -1px 0 0 rgba(15,23,42,.03);
+
+  --lift-1: 0 2px 8px rgba(15,23,42,.07);
+  --lift-2: 0 12px 28px rgba(15,23,42,.09);
+  --lift-3: 0 24px 56px rgba(15,23,42,.12);
+  --shadow: var(--lift-2);
+  --glow-accent: 0 0 0 1px rgba(0,137,171,.25), 0 8px 24px rgba(0,137,171,.12);
+  --glow-green: 0 0 0 1px rgba(6,122,86,.25), 0 8px 24px rgba(6,122,86,.12);
+
+  --nav-bg: rgba(255,255,255,.72);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { color-scheme: dark; }
+html[data-theme="light"] { color-scheme: light; }
 body {
   background: var(--bg); color: var(--text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -905,6 +960,12 @@ body::after {
 .bg-mesh .b1 { width: 480px; height: 480px; background: var(--bg-blob-1); top: -160px; left: -100px; animation: drift1 22s ease-in-out infinite; }
 .bg-mesh .b2 { width: 420px; height: 420px; background: var(--bg-blob-2); top: 20%; right: -140px; animation: drift2 26s ease-in-out infinite; }
 .bg-mesh .b3 { width: 380px; height: 380px; background: var(--bg-blob-3); bottom: -120px; left: 30%; animation: drift3 30s ease-in-out infinite; }
+:root[data-theme="light"] body::after {
+  background-image:
+    linear-gradient(rgba(15,23,42,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,23,42,.045) 1px, transparent 1px);
+}
+:root[data-theme="light"] .bg-mesh span { opacity: .13; }
 @keyframes drift1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(60px,80px); } }
 @keyframes drift2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-70px,50px); } }
 @keyframes drift3 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(50px,-60px); } }
@@ -934,7 +995,7 @@ body::after {
    ------------------------------------------------------------ */
 nav {
   position: sticky; top: 0; z-index: 30;
-  background: rgba(6,8,13,.72);
+  background: var(--nav-bg);
   backdrop-filter: var(--glass-regular); -webkit-backdrop-filter: var(--glass-regular);
   border-bottom: 1px solid var(--border-hair);
 }
@@ -977,6 +1038,7 @@ nav {
 .ticker-item .t-rating.Aplus { color: var(--amber); }
 .ticker-item .t-rating.A { color: var(--green); }
 .ticker-item .t-rating.Bplus { color: #9fb3d4; }
+:root[data-theme="light"] .ticker-item .t-rating.Bplus { color: #3f5c85; }
 .ticker-item .t-rating.B { color: var(--b); }
 
 .nav-shell { display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; }
@@ -1007,6 +1069,18 @@ nav {
   .nav-links::-webkit-scrollbar { display: none; }
   .nav-links a:not(.cta) { white-space: nowrap; }
 }
+
+.theme-toggle {
+  flex-shrink: 0; margin-left: 14px; width: 34px; height: 34px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2);
+  cursor: pointer; transition: border-color .18s, color .18s, transform .18s var(--ease);
+}
+.theme-toggle:hover { color: var(--text); border-color: var(--border-strong); transform: translateY(-1px); }
+.theme-icon { width: 17px; height: 17px; }
+.theme-icon-moon { display: none; }
+:root[data-theme="light"] .theme-icon-sun { display: none; }
+:root[data-theme="light"] .theme-icon-moon { display: block; }
 
 /* signal toast */
 .signal-toast-region {
@@ -1110,6 +1184,7 @@ nav {
 .monitor-rating.Aplus, .trade-badge.Aplus { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,200,90,.28); }
 .monitor-rating.A, .trade-badge.A { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,236,159,.28); }
 .monitor-rating.Bplus, .trade-badge.Bplus { background: var(--blue-dim); color: #9fb3d4; border: 1px solid rgba(75,163,255,.24); }
+:root[data-theme="light"] .monitor-rating.Bplus, :root[data-theme="light"] .trade-badge.Bplus { color: #3f5c85; }
 .monitor-rating.B, .trade-badge.B { background: rgba(138,167,216,.1); color: var(--b); border: 1px solid rgba(138,167,216,.24); }
 .monitor-empty { color: var(--text-3); font-size: 13px; padding: 20px 4px; text-align: center; }
 .monitor-foot { display: flex; flex-direction: column; gap: 3px; padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--border-hair); }
@@ -1227,6 +1302,7 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 .ytd-ledger-table tbody tr:last-child td { border-bottom: none; }
 .ytd-ledger-table tbody tr { transition: background .15s; }
 .ytd-ledger-table tbody tr:hover { background: rgba(255,255,255,.025); }
+:root[data-theme="light"] .ytd-ledger-table tbody tr:hover { background: rgba(15,23,42,.03); }
 .trade-date { color: var(--text-3); }
 .trade-symbol { color: var(--text); font-weight: 700; }
 .trade-rating { margin-left: 7px; font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-dim); border-radius: 5px; padding: 1px 5px; }
@@ -1300,6 +1376,7 @@ table.filings tbody td { padding: 12px 18px; border-bottom: 1px solid var(--bord
 table.filings tbody tr:last-child td { border-bottom: none; }
 table.filings tbody tr { transition: background .15s; }
 table.filings tbody tr:hover { background: rgba(255,255,255,.025); }
+:root[data-theme="light"] table.filings tbody tr:hover { background: rgba(15,23,42,.03); }
 table.filings .tk { font-weight: 700; color: var(--text); }
 table.filings .role { color: var(--text-3); font-size: 12.5px; margin-top: 2px; }
 table.filings .amt { text-align: right; }
@@ -1352,6 +1429,7 @@ table.filings .amt { text-align: right; }
 .market-range-track { position: relative; height: 4px; border-radius: 999px; background: var(--border); }
 .market-range-fill { position: absolute; inset: 0; width: var(--range-position, 0%); border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--green)); }
 .market-range-pin { position: absolute; top: 50%; left: var(--range-position, 0%); width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px var(--bg), 0 0 8px var(--accent); transform: translate(-50%, -50%); }
+:root[data-theme="light"] .market-range-pin { background: var(--text); }
 .market-range-labels { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-3); margin-top: 6px; font-family: 'JetBrains Mono', monospace; }
 .market-source-note { font-size: 10.5px; color: var(--text-3); margin-top: 12px; }
 
@@ -1564,6 +1642,8 @@ def inject_shared_data():
     }
 
 
+THEME_INIT = """<script>(function(){try{var t=localStorage.getItem('aiinsider_theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>"""
+
 NAV = """
 <div class="bg-mesh"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
 <nav aria-label="Primary navigation">
@@ -1604,6 +1684,10 @@ NAV = """
       <a href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
       <a class="cta" href="/#signals">Start Free</a>
     </div>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-label="Switch between light and dark theme" title="Switch theme">
+      <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4.3" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.6v2.2M12 19.2v2.2M4.3 4.3l1.6 1.6M18.1 18.1l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.3 19.7l1.6-1.6M18.1 5.9l1.6-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.3A8.4 8.4 0 1 1 9.7 4a6.9 6.9 0 0 0 10.3 10.3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+    </button>
   </div>
 </nav>
 <div id="signal-toast-region" class="signal-toast-region" aria-live="polite" aria-atomic="true"></div>
@@ -1631,6 +1715,27 @@ FOOTER = """
   <p style="color:var(--muted);font-size:13px;margin-top:16px;">&copy; {{ year }} AI INSIDER</p>
 </div></footer>
 <script>
+(() => {
+  const STORAGE_KEY = 'aiinsider_theme';
+  const toggle = document.querySelector('[data-theme-toggle]');
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+  const themeColors = { dark: '#03070c', light: '#f4f6fa' };
+  const applyThemeColorMeta = theme => {
+    if (metaThemeColor) metaThemeColor.setAttribute('content', themeColors[theme] || themeColors.dark);
+  };
+  applyThemeColorMeta(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      const next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem(STORAGE_KEY, next); } catch (_) {}
+      applyThemeColorMeta(next);
+      window.dispatchEvent(new CustomEvent('aiinsider:themechange', { detail: { theme: next } }));
+    });
+  }
+})();
+
 if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
   // stagger cards within the same grid so they reveal one after another
   document.querySelectorAll('.trade-grid').forEach(grid => {
@@ -1936,6 +2041,7 @@ HOME_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
 <title>AI INSIDER &mdash; Scored insider buying from SEC filings</title>
 <meta name="description" content="Every open-market insider purchase, scored against two decades of backtested history. Free, public, updated daily from SEC EDGAR.">
 <style>""" + BASE_CSS + """</style>
@@ -2530,6 +2636,26 @@ HOME_TEMPLATE = """
     };
   }).filter(Boolean);
 
+  const CHART_COLORS = {
+    dark: {
+      axisLabel: '#66727b', xLabel: '#647078',
+      gridMajor: 'rgba(255,255,255,.13)', gridMinor: 'rgba(255,255,255,.055)',
+      backtestFillFrom: 'rgba(0, 236, 159, .16)', backtestFillTo: 'rgba(0, 236, 159, 0)',
+      ownerFillFrom: 'rgba(215, 255, 125, .16)', ownerFillTo: 'rgba(215, 255, 125, 0)',
+      benchmark: '#4ba3ff', strategy: '#00ec9f', owner: '#d7ff7d', benchmarkLabel: '#75baff',
+      crosshair: 'rgba(255,255,255,.18)', hoverDotFill: '#071014',
+    },
+    light: {
+      axisLabel: '#5b6472', xLabel: '#5b6472',
+      gridMajor: 'rgba(15,23,42,.14)', gridMinor: 'rgba(15,23,42,.06)',
+      backtestFillFrom: 'rgba(6, 122, 86, .14)', backtestFillTo: 'rgba(6, 122, 86, 0)',
+      ownerFillFrom: 'rgba(122, 122, 16, .14)', ownerFillTo: 'rgba(122, 122, 16, 0)',
+      benchmark: '#1c64d1', strategy: '#067a56', owner: '#7a7a10', benchmarkLabel: '#1c64d1',
+      crosshair: 'rgba(15,23,42,.22)', hoverDotFill: '#ffffff',
+    },
+  };
+  const chartTheme = () => (document.documentElement.getAttribute('data-theme') === 'light' ? CHART_COLORS.light : CHART_COLORS.dark);
+
   const ctx = canvas.getContext('2d');
   const tooltip = document.querySelector('[data-performance-tooltip]');
   const tooltipDate = document.querySelector('[data-tooltip-date]');
@@ -2640,6 +2766,7 @@ HOME_TEMPLATE = """
 
   const drawChart = () => {
     if (!visibleRows.length) return;
+    const theme = chartTheme();
     const width = Math.max(320, canvas.clientWidth);
     const height = Math.max(230, canvas.clientHeight);
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -2671,7 +2798,7 @@ HOME_TEMPLATE = """
 
     ctx.save();
     ctx.font = "11.5px 'JetBrains Mono', monospace";
-    ctx.fillStyle = '#66727b';
+    ctx.fillStyle = theme.axisLabel;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let line = 0; line <= 4; line += 1) {
@@ -2681,7 +2808,7 @@ HOME_TEMPLATE = """
       ctx.beginPath();
       ctx.moveTo(padding.left, y);
       ctx.lineTo(width - padding.right, y);
-      ctx.strokeStyle = Math.abs(value) < spread / 8 ? 'rgba(255,255,255,.13)' : 'rgba(255,255,255,.055)';
+      ctx.strokeStyle = Math.abs(value) < spread / 8 ? theme.gridMajor : theme.gridMinor;
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.fillText(axisPercent(value), padding.left - 8, y);
@@ -2691,8 +2818,8 @@ HOME_TEMPLATE = """
     if (!ownerMode) {
       const zeroY = yValue(0);
       const fill = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
-      fill.addColorStop(0, 'rgba(0, 236, 159, .16)');
-      fill.addColorStop(1, 'rgba(0, 236, 159, 0)');
+      fill.addColorStop(0, theme.backtestFillFrom);
+      fill.addColorStop(1, theme.backtestFillTo);
       ctx.beginPath();
       visibleRows.forEach((row, index) => {
         const x = xFor(index);
@@ -2705,13 +2832,13 @@ HOME_TEMPLATE = """
       ctx.fillStyle = fill;
       ctx.fill();
 
-      drawSeries(visibleRows, xFor, benchmarkY, '#4ba3ff', 1.7, [5, 4]);
-      drawSeries(visibleRows, xFor, strategyY, '#00ec9f', 2.2);
+      drawSeries(visibleRows, xFor, benchmarkY, theme.benchmark, 1.7, [5, 4]);
+      drawSeries(visibleRows, xFor, strategyY, theme.strategy, 2.2);
     } else {
       const zeroY = yValue(0);
       const ownerFill = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
-      ownerFill.addColorStop(0, 'rgba(215, 255, 125, .16)');
-      ownerFill.addColorStop(1, 'rgba(215, 255, 125, 0)');
+      ownerFill.addColorStop(0, theme.ownerFillFrom);
+      ownerFill.addColorStop(1, theme.ownerFillTo);
       ctx.beginPath();
       visibleRows.forEach((row, index) => {
         const x = xFor(index);
@@ -2724,14 +2851,14 @@ HOME_TEMPLATE = """
       ctx.fillStyle = ownerFill;
       ctx.fill();
 
-      drawSeries(visibleRows, xFor, benchmarkY, '#4ba3ff', 2.1);
-      drawSeries(visibleRows, xFor, strategyY, '#d7ff7d', 2.5);
+      drawSeries(visibleRows, xFor, benchmarkY, theme.benchmark, 2.1);
+      drawSeries(visibleRows, xFor, strategyY, theme.owner, 2.5);
     }
 
     const labelIndexes = [0, Math.floor((visibleRows.length - 1) / 2), visibleRows.length - 1];
     ctx.save();
     ctx.font = "10.5px 'JetBrains Mono', monospace";
-    ctx.fillStyle = '#647078';
+    ctx.fillStyle = theme.xLabel;
     ctx.textBaseline = 'bottom';
     labelIndexes.forEach((index, position) => {
       ctx.textAlign = position === 0 ? 'left' : (position === 2 ? 'right' : 'center');
@@ -2744,9 +2871,9 @@ HOME_TEMPLATE = """
         if (!row.ownerEvent || index === 0) return;
         ctx.beginPath();
         ctx.arc(xFor(index), strategyY(row), 2.6, 0, Math.PI * 2);
-        ctx.fillStyle = '#071014';
+        ctx.fillStyle = theme.hoverDotFill;
         ctx.fill();
-        ctx.strokeStyle = '#d7ff7d';
+        ctx.strokeStyle = theme.owner;
         ctx.lineWidth = 1.4;
         ctx.stroke();
       });
@@ -2756,7 +2883,7 @@ HOME_TEMPLATE = """
       const latestY = strategyY(latestOwner);
       ctx.save();
       ctx.font = "600 12px 'JetBrains Mono', monospace";
-      ctx.fillStyle = '#d7ff7d';
+      ctx.fillStyle = theme.owner;
       ctx.textAlign = 'right';
       ctx.textBaseline = 'bottom';
       ctx.fillText(`Owner ${signedPercent(latestOwner.strategyReturn)}`, latestX - 8, Math.max(14, latestY - 8));
@@ -2767,7 +2894,7 @@ HOME_TEMPLATE = """
       const labelsAreClose = Math.abs(latestY - benchmarkLatestY) < 24;
       ctx.save();
       ctx.font = "600 12px 'JetBrains Mono', monospace";
-      ctx.fillStyle = '#75baff';
+      ctx.fillStyle = theme.benchmarkLabel;
       ctx.textAlign = 'right';
       ctx.textBaseline = labelsAreClose ? 'top' : 'bottom';
       ctx.fillText(
@@ -2784,13 +2911,13 @@ HOME_TEMPLATE = """
       ctx.beginPath();
       ctx.moveTo(x, padding.top);
       ctx.lineTo(x, padding.top + plotHeight);
-      ctx.strokeStyle = 'rgba(255,255,255,.18)';
+      ctx.strokeStyle = theme.crosshair;
       ctx.lineWidth = 1;
       ctx.stroke();
-      [[strategyY(row), ownerMode ? '#d7ff7d' : '#00ec9f'], [benchmarkY(row), '#4ba3ff']].forEach(([y, color]) => {
+      [[strategyY(row), ownerMode ? theme.owner : theme.strategy], [benchmarkY(row), theme.benchmark]].forEach(([y, color]) => {
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#071014';
+        ctx.fillStyle = theme.hoverDotFill;
         ctx.fill();
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
@@ -2886,6 +3013,7 @@ HOME_TEMPLATE = """
   } else {
     window.addEventListener('resize', drawChart, { passive: true });
   }
+  window.addEventListener('aiinsider:themechange', () => drawChart());
   renderRange(activeRange);
 })();
 </script>
@@ -2930,6 +3058,7 @@ TRACK_RECORD_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
 <title>Track Record &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -3041,6 +3170,7 @@ LEADERBOARD_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
 <title>Leaderboard &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -3109,6 +3239,7 @@ HOW_IT_WORKS_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
 <title>How It Works &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -3138,6 +3269,7 @@ SIMPLE_PAGE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
 <title>{{ title }} &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
