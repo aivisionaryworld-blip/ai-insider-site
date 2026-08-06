@@ -124,6 +124,34 @@ def load_ticker_items(limit=15):
     return recent[["ticker", "rating", "signal_date"]].to_dict("records")
 
 
+def load_market_trades(limit=25):
+    """Real, unfiltered, market-wide open-market Form 4 trades pulled
+    straight from SEC EDGAR by sync_market_insider_trades.py.
+
+    Distinct from load_public_signals()/load_ticker_items(): those only
+    ever show trades that already passed AI Insider's own scoring model.
+    This is the raw stream the model screens, for the "every real insider
+    trade" banner. Honest empty state (an empty list) until the sync
+    workflow has produced data — never fabricated.
+    """
+    path = os.path.join(BASE_DIR, "public_market_insider_trades.csv")
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return []
+    if df.empty:
+        return []
+    recent = df.sort_values(["transaction_date", "filed_date"], ascending=False).head(limit)
+    cols = ["transaction_date", "ticker", "company", "insider_name",
+            "insider_title", "transaction_type", "shares", "price", "value"]
+    for c in cols:
+        if c not in recent.columns:
+            recent[c] = None
+    return recent[cols].to_dict("records")
+
+
 def _newest_signal_date(path):
     """Newest signal_date in a public feed CSV, or None."""
     if not os.path.exists(path):
@@ -1229,6 +1257,37 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 .trust-stat .l { color: var(--text-3); font-size: 12px; text-transform: uppercase; letter-spacing: .07em; margin-top: 5px; }
 
 /* ------------------------------------------------------------
+   market activity banner — raw, unfiltered SEC feed (distinct from
+   the AI-scored signal ticker in nav: amber accent, not accent/green)
+   ------------------------------------------------------------ */
+.market-activity-banner { padding: 40px 0 44px; }
+.market-activity-head { max-width: 640px; margin: 0 auto 22px; text-align: center; }
+.market-activity-head .eyebrow { color: var(--amber); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .09em; }
+.market-activity-head h2 { font-size: 24px; margin-top: 10px; }
+.market-activity-head p { color: var(--text-2); font-size: 13.5px; margin-top: 10px; line-height: 1.6; }
+.market-activity-scroll {
+  overflow: hidden; white-space: nowrap; position: relative;
+  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-solid);
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+}
+.market-activity-track { display: inline-flex; gap: 0; animation: ticker-scroll 60s linear infinite; }
+.market-activity-scroll:hover .market-activity-track { animation-play-state: paused; }
+.market-activity-item {
+  display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding: 14px 20px; border-right: 1px solid var(--border-hair);
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--text-2);
+}
+.ma-ticker { color: var(--text); font-weight: 700; }
+.ma-type { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; }
+.ma-type.buy { color: var(--green); background: var(--green-dim); }
+.ma-type.sell { color: var(--red); background: var(--red-dim); }
+.ma-insider { color: var(--text-3); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.ma-value { color: var(--amber); }
+.ma-date { color: var(--text-3); }
+@media (max-width: 640px) { .ma-insider { max-width: 120px; } }
+
+/* ------------------------------------------------------------
    filings table
    ------------------------------------------------------------ */
 .filings-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-solid); -webkit-overflow-scrolling: touch; }
@@ -2069,6 +2128,27 @@ HOME_TEMPLATE = """
 </div></div>
 {% endif %}
 
+{% if market_trades %}
+<section id="market-activity" class="market-activity-banner"><div class="wrap">
+  <div class="market-activity-head">
+    <span class="eyebrow">Unfiltered &middot; market-wide &middot; not our signals</span>
+    <h2>Every real insider trade, not just the ones we flag</h2>
+    <p>Every open-market Form 4 buy or sell filed across the entire market, pulled straight from SEC EDGAR &mdash; raw and unscored. This is the noise AI Insider's model screens down to the signals above.</p>
+  </div>
+  <div class="market-activity-scroll"><div class="market-activity-track">
+    {% for t in market_trades + market_trades %}
+    <span class="market-activity-item">
+      <span class="ma-ticker">${{ t.ticker }}</span>
+      <span class="ma-type {{ 'sell' if t.transaction_type == 'Open-market sell' else 'buy' }}">{{ t.transaction_type }}</span>
+      <span class="ma-insider">{{ t.insider_name or 'Insider' }}{% if t.insider_title %} &middot; {{ t.insider_title }}{% endif %}</span>
+      {% if t.value %}<span class="ma-value">${{ '{:,.0f}'.format(t.value) }}</span>{% endif %}
+      <span class="ma-date">{{ t.transaction_date }}</span>
+    </span>
+    {% endfor %}
+  </div></div>
+</div></section>
+{% endif %}
+
 <section id="filings"><div class="wrap">
   <div class="section-head">
     <span class="eyebrow">01 / Signal ledger</span>
@@ -2840,6 +2920,7 @@ def home():
         performance=performance,
         ytd_snapshot=ytd_snapshot,
         ytd_ledger=ytd_ledger,
+        market_trades=load_market_trades(),
     )
 
 
