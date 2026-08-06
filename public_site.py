@@ -152,6 +152,52 @@ def load_market_trades(limit=25):
     return recent[cols].to_dict("records")
 
 
+def load_congress_trades(limit=200):
+    """Real congressional stock-trading disclosures synced from the House
+    Stock Watcher / Senate Stock Watcher datasets by
+    sync_congress_trades.py. Honest empty state until the sync has
+    produced data — never fabricated.
+    """
+    path = os.path.join(BASE_DIR, "public_congress_trades.csv")
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return []
+    if df.empty:
+        return []
+    recent = df.sort_values(["transaction_date", "disclosure_date"], ascending=False).head(limit)
+    cols = ["disclosure_date", "transaction_date", "chamber", "member", "ticker",
+            "asset_description", "transaction_type", "amount_range", "state_or_district"]
+    for c in cols:
+        if c not in recent.columns:
+            recent[c] = None
+    return recent[cols].to_dict("records")
+
+
+def load_market_news(limit=40):
+    """Real market-news headlines synced from public RSS feeds by
+    sync_market_news.py. Honest empty state until the sync has produced
+    data — never fabricated.
+    """
+    path = os.path.join(BASE_DIR, "public_market_news.csv")
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return []
+    if df.empty:
+        return []
+    recent = df.head(limit)  # already sorted newest-first by the sync script
+    cols = ["published", "source", "title", "link"]
+    for c in cols:
+        if c not in recent.columns:
+            recent[c] = None
+    return recent[cols].to_dict("records")
+
+
 def _newest_signal_date(path):
     """Newest signal_date in a public feed CSV, or None."""
     if not os.path.exists(path):
@@ -1055,23 +1101,29 @@ nav {
   color: var(--text-3); border: 1px solid var(--border); border-radius: 999px;
   padding: 2px 8px; margin-left: 2px; letter-spacing: .04em;
 }
-.nav-links { display: flex; gap: 26px; align-items: center; }
-.nav-links a:not(.cta) { font-size: 13.5px; color: var(--text-2); position: relative; padding: 2px 0; transition: color .15s; }
-.nav-links a:not(.cta):hover { color: var(--text); }
-.nav-links a:not(.cta)::after {
+.nav-links {
+  display: flex; gap: 22px; align-items: center; flex: 1 1 auto; min-width: 0;
+  overflow-x: auto; padding: 3px 0; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+}
+.nav-links::-webkit-scrollbar { display: none; }
+.nav-links a { font-size: 13.5px; color: var(--text-2); position: relative; padding: 2px 0; white-space: nowrap; transition: color .15s; flex-shrink: 0; }
+.nav-links a:hover { color: var(--text); }
+.nav-links a::after {
   content: ""; position: absolute; left: 0; right: 100%; bottom: -3px; height: 1px;
   background: var(--accent); transition: right .22s var(--ease-out);
 }
-.nav-links a:not(.cta):hover::after { right: 0; }
+.nav-links a:hover::after { right: 0; }
 
-@media (max-width: 940px) {
-  .nav-links { gap: 16px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  .nav-links::-webkit-scrollbar { display: none; }
-  .nav-links a:not(.cta) { white-space: nowrap; }
-}
+.nav-pinned { display: flex; align-items: center; gap: 14px; flex-shrink: 0; margin-left: 20px; }
+.nav-waitlist { font-size: 13px; color: var(--text-3); white-space: nowrap; transition: color .15s; }
+.nav-waitlist:hover { color: var(--text-2); }
+
+@media (max-width: 640px) { .nav-waitlist { display: none; } }
 
 .theme-toggle {
-  flex-shrink: 0; margin-left: 14px; width: 34px; height: 34px; border-radius: 50%;
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2);
   cursor: pointer; transition: border-color .18s, color .18s, transform .18s var(--ease);
@@ -1677,17 +1729,22 @@ NAV = """
       <a href="/#performance">Dashboard</a>
       <a href="/#signals">Signals</a>
       <a href="/#market-data">Markets</a>
+      <a href="/insider-trades">Insider Trades</a>
+      <a href="/market-news">Market News</a>
+      <a href="/congress">Congress</a>
       <a href="/track-record">Track Record</a>
       <a href="/leaderboard">Leaderboard</a>
       <a href="/how-it-works">Methodology</a>
       <a href="/#pricing">Pricing</a>
-      <a href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
-      <a class="cta" href="/#signals">Start Free</a>
     </div>
+    <div class="nav-pinned">
+    <a class="nav-waitlist" href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
+    <a class="cta" href="/#signals">Start Free</a>
     <button type="button" class="theme-toggle" data-theme-toggle aria-label="Switch between light and dark theme" title="Switch theme">
       <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4.3" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.6v2.2M12 19.2v2.2M4.3 4.3l1.6 1.6M18.1 18.1l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.3 19.7l1.6-1.6M18.1 5.9l1.6-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
       <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.3A8.4 8.4 0 1 1 9.7 4a6.9 6.9 0 0 0 10.3 10.3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
     </button>
+    </div>
   </div>
 </nav>
 <div id="signal-toast-region" class="signal-toast-region" aria-live="polite" aria-atomic="true"></div>
@@ -2239,7 +2296,7 @@ HOME_TEMPLATE = """
   <div class="market-activity-head">
     <span class="eyebrow">Unfiltered &middot; market-wide &middot; not our signals</span>
     <h2>Every real insider trade, not just the ones we flag</h2>
-    <p>Every open-market Form 4 buy or sell filed across the entire market, pulled straight from SEC EDGAR &mdash; raw and unscored. This is the noise AI Insider's model screens down to the signals above.</p>
+    <p>Every open-market Form 4 buy or sell filed across the entire market, pulled straight from SEC EDGAR &mdash; raw and unscored. This is the noise AI Insider's model screens down to the signals above. <a href="/insider-trades" style="color:var(--amber);">View the full feed &rarr;</a></p>
   </div>
   <div class="market-activity-scroll"><div class="market-activity-track">
     {% for t in market_trades + market_trades %}
@@ -3261,6 +3318,176 @@ HOW_IT_WORKS_TEMPLATE = """
 @app.route("/how-it-works")
 def how_it_works():
     return render_template_string(HOW_IT_WORKS_TEMPLATE)
+
+
+# ── insider trades (full market-wide feed) ─────────────────────────
+
+INSIDER_TRADES_TEMPLATE = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
+<title>Insider Trades &mdash; every real open-market Form 4 &mdash; AI INSIDER</title>
+<meta name="description" content="Every open-market insider buy or sell filed market-wide with the SEC, unfiltered and unscored -- separate from AI Insider's own scored signal feed.">
+<style>""" + BASE_CSS + """</style>
+</head><body>
+""" + NAV + """
+<div class="hero"><div class="wrap">
+  <span class="eyebrow">Unfiltered &middot; market-wide &middot; not our signals</span>
+  <h1>Every real insider trade, <span class="grad">not just the ones we flag</span>.</h1>
+  <p>Every open-market Form 4 buy or sell filed anywhere in the market, pulled straight from SEC EDGAR. This is the raw stream AI Insider's model screens down to the <a href="/#signals" style="color:var(--accent);">scored signals</a> above.</p>
+</div></div>
+
+<section><div class="wrap">
+  <div class="section-head" style="text-align:left;margin:0 0 28px;">
+    <span class="eyebrow">Live feed</span>
+    <h2 style="font-size:26px;">{{ trades|length }} recent trade{{ '' if trades|length == 1 else 's' }}</h2>
+    <p style="margin-top:8px;">Synced hourly from SEC EDGAR's current Form 4 filings. Only genuine open-market buys and sells &mdash; grants, option exercises, and gifts are excluded.</p>
+  </div>
+  {% if trades %}
+  <div class="filings-table-wrap">
+    <table class="filings">
+      <thead><tr>
+        <th>Date</th><th>Ticker</th><th>Company</th><th>Insider</th><th>Type</th><th class="amt">Shares</th><th class="amt">Price</th><th class="amt">Value</th>
+      </tr></thead>
+      <tbody>
+        {% for t in trades %}
+        <tr>
+          <td>{{ t.transaction_date }}</td>
+          <td class="tk">${{ t.ticker }}</td>
+          <td>{{ t.company or '—' }}</td>
+          <td>{{ t.insider_name or '—' }}{% if t.insider_title %}<div class="role">{{ t.insider_title }}</div>{% endif %}</td>
+          <td><span class="ma-type {{ 'sell' if t.transaction_type == 'Open-market sell' else 'buy' }}">{{ t.transaction_type }}</span></td>
+          <td class="amt">{{ '{:,.0f}'.format(t.shares) if t.shares else '—' }}</td>
+          <td class="amt">{{ '${:,.2f}'.format(t.price) if t.price else '—' }}</td>
+          <td class="amt">{{ '${:,.0f}'.format(t.value) if t.value else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No market-wide trades synced yet &mdash; this fills in automatically once the hourly SEC EDGAR sync has run. Shown honestly empty rather than faked.</div>
+  {% endif %}
+  <p class="signal-sizing-note" style="margin-top:16px;">This feed is informational only, not a recommendation. It reflects public SEC filings and may be incomplete or delayed.</p>
+</div></section>
+
+""" + FOOTER.replace("{{ year }}", str(datetime.now().year)) + """
+</body></html>
+"""
+
+
+@app.route("/insider-trades")
+def insider_trades():
+    return render_template_string(INSIDER_TRADES_TEMPLATE, trades=load_market_trades(limit=200))
+
+
+# ── congress trades ─────────────────────────────────────────────────
+
+CONGRESS_TEMPLATE = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
+<title>Congress Trading &mdash; House &amp; Senate stock disclosures &mdash; AI INSIDER</title>
+<meta name="description" content="Every stock trade disclosed by members of the House and Senate under the STOCK Act, synced from the House Stock Watcher and Senate Stock Watcher public datasets.">
+<style>""" + BASE_CSS + """</style>
+</head><body>
+""" + NAV + """
+<div class="hero"><div class="wrap">
+  <span class="eyebrow">STOCK Act disclosures &middot; House &amp; Senate</span>
+  <h1>What <span class="grad">Congress</span> is trading.</h1>
+  <p>Every periodic transaction report members of the House and Senate are required to file when they buy or sell stock, synced from the House Stock Watcher and Senate Stock Watcher public datasets. Disclosures are legally allowed to lag the actual trade by up to 45 days &mdash; these are reported dates, not real-time.</p>
+</div></div>
+
+<section><div class="wrap">
+  <div class="section-head" style="text-align:left;margin:0 0 28px;">
+    <span class="eyebrow">Live feed</span>
+    <h2 style="font-size:26px;">{{ trades|length }} recent disclosure{{ '' if trades|length == 1 else 's' }}</h2>
+    <p style="margin-top:8px;">Synced every 6 hours from the House Stock Watcher and Senate Stock Watcher datasets, which parse the official House Clerk and Senate eFD filings.</p>
+  </div>
+  {% if trades %}
+  <div class="filings-table-wrap">
+    <table class="filings">
+      <thead><tr>
+        <th>Disclosed</th><th>Traded</th><th>Chamber</th><th>Member</th><th>Ticker</th><th>Type</th><th class="amt">Amount</th>
+      </tr></thead>
+      <tbody>
+        {% for t in trades %}
+        <tr>
+          <td>{{ t.disclosure_date or '—' }}</td>
+          <td>{{ t.transaction_date or '—' }}</td>
+          <td>{{ t.chamber }}</td>
+          <td>{{ t.member or '—' }}{% if t.state_or_district %}<div class="role">{{ t.state_or_district }}</div>{% endif %}</td>
+          <td class="tk">${{ t.ticker }}</td>
+          <td><span class="ma-type {{ 'sell' if 'Sale' in (t.transaction_type or '') else 'buy' }}">{{ t.transaction_type }}</span></td>
+          <td class="amt">{{ t.amount_range or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No congressional disclosures synced yet &mdash; this fills in automatically once the sync has run. Shown honestly empty rather than faked.</div>
+  {% endif %}
+  <p class="signal-sizing-note" style="margin-top:16px;">Congressional trading data is sourced from third-party open datasets that parse official disclosures; it is informational only, may lag or contain gaps, and is not a recommendation.</p>
+</div></section>
+
+""" + FOOTER.replace("{{ year }}", str(datetime.now().year)) + """
+</body></html>
+"""
+
+
+@app.route("/congress")
+def congress_trades():
+    return render_template_string(CONGRESS_TEMPLATE, trades=load_congress_trades(limit=200))
+
+
+# ── market news ──────────────────────────────────────────────────
+
+MARKET_NEWS_TEMPLATE = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
+<title>Market News &mdash; AI INSIDER</title>
+<meta name="description" content="Financial market headlines aggregated from public RSS feeds.">
+<style>""" + BASE_CSS + """</style>
+</head><body>
+""" + NAV + """
+<div class="hero"><div class="wrap">
+  <span class="eyebrow">Aggregated headlines</span>
+  <h1>Market <span class="grad">news</span>, in one place.</h1>
+  <p>Financial headlines pulled from public market-news feeds, refreshed hourly. General market context, not part of AI Insider's own research.</p>
+</div></div>
+
+<section><div class="wrap">
+  <div class="section-head" style="text-align:left;margin:0 0 28px;">
+    <span class="eyebrow">Live feed</span>
+    <h2 style="font-size:26px;">{{ news|length }} recent headline{{ '' if news|length == 1 else 's' }}</h2>
+  </div>
+  {% if news %}
+  <div style="max-width:820px;">
+    {% for n in news %}
+    <div class="faq-item">
+      <h4><a href="{{ n.link }}" target="_blank" rel="noopener nofollow" style="color:var(--text);">{{ n.title }}</a></h4>
+      <p>{{ n.source }}{% if n.published %} &middot; {{ n.published }}{% endif %}</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">No market news synced yet &mdash; this fills in automatically once the sync has run. Shown honestly empty rather than faked.</div>
+  {% endif %}
+</div></section>
+
+""" + FOOTER.replace("{{ year }}", str(datetime.now().year)) + """
+</body></html>
+"""
+
+
+@app.route("/market-news")
+def market_news():
+    return render_template_string(MARKET_NEWS_TEMPLATE, news=load_market_news(limit=60))
 
 
 # ── simple pages ─────────────────────────────────────────────────

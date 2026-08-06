@@ -1,0 +1,39 @@
+name: Sync congressional trades
+
+on:
+  schedule:
+    - cron: "40 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-congress-trades
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pull House + Senate stock-trading disclosures
+        env:
+          SEC_USER_AGENT: ${{ vars.SEC_USER_AGENT || 'AIInsider/1.0 (hello@aiinsider.store)' }}
+        run: python sync_congress_trades.py
+
+      - name: Publish only when the feed changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- public_congress_trades.csv
+          if git diff --cached --quiet; then
+            echo "No new congressional trades."
+            exit 0
+          fi
+          git commit -m "Sync congressional trades"
+          git push origin HEAD:main
