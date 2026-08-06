@@ -1,7 +1,27 @@
 {
   "year": 2026,
-  "activity_as_of": "2026-08-01",
+  "activity_as_of": "2026-08-03",
   "events": [
+    {
+      "date": "2026-08-03",
+      "ticker": "HLI",
+      "rating": "B",
+      "status": "OPEN SIGNAL",
+      "return_pct": null,
+      "model_allocation_pct": 15.0,
+      "resolved_date": null,
+      "source": "AI_INSIDER_BOT"
+    },
+    {
+      "date": "2026-08-03",
+      "ticker": "GBFH",
+      "rating": "A+",
+      "status": "OPEN SIGNAL",
+      "return_pct": null,
+      "model_allocation_pct": 25.0,
+      "resolved_date": null,
+      "source": "AI_INSIDER_BOT"
+    },
     {
       "date": "2026-08-01",
       "ticker": "IONS",
