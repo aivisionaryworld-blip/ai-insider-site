@@ -91,14 +91,185 @@ jobs:
           PY
           rm -f ledger-download.json
 
+      - name: Download and validate the public signal feed
+        env:
+          LEDGER_URL: ${{ secrets.PUBLIC_LEDGER_URL }}
+          SIGNALS_URL_OVERRIDE: ${{ secrets.PUBLIC_SIGNALS_URL }}
+        run: |
+          # The signal feed lives on the same host as the ledger. Derive its URL
+          # so no second secret is required, but allow an explicit override.
+          if [ -n "$SIGNALS_URL_OVERRIDE" ]; then
+            SIGNALS_URL="$SIGNALS_URL_OVERRIDE"
+          else
+            SIGNALS_URL="${LEDGER_URL%/api/ytd-ledger}/api/signals"
+          fi
+          test -n "$SIGNALS_URL"
+          curl --fail --silent --show-error --retry 3 --max-time 30 "$SIGNALS_URL" -o signals-download.json
+          python - <<'PY'
+          import csv
+          import json
+          import os
+          import re
+
+          # Exactly the columns public_site.py reads, in the on-disk order the
+          # site has always used.
+          CURRENT_COLUMNS = [
+              "signal_date", "trade_date", "ticker", "company", "rating",
+              "conviction", "hold_mode", "confirmed_entry", "current_price",
+              "take_profit", "stop_loss", "max_hold", "model_allocation_pct",
+              "reason", "red_flags", "insider_name", "insider_title",
+              "total_amount", "market_cap", "rsi14", "low_52w", "high_52w",
+              "ret_20d_pct", "avg_volume_20d",
+          ]
+          # History has its own shape: entry_price rather than confirmed_entry,
+          # and it carries neither current_price nor stop_loss.
+          HISTORY_COLUMNS = [
+              "ticker", "company", "rating", "conviction", "hold_mode",
+              "signal_date", "trade_date", "entry_price", "take_profit",
+              "max_hold", "model_allocation_pct", "reason", "red_flags",
+              "insider_name", "insider_title", "total_amount", "market_cap",
+              "rsi14", "low_52w", "high_52w", "ret_20d_pct", "avg_volume_20d",
+          ]
+          # signal_id / range_position_pct / target_pct are derived by the site
+          # at render time, so they are accepted but deliberately dropped.
+          ALLOWED = {
+              "signal_date", "trade_date", "ticker", "company", "rating",
+              "conviction", "hold_mode", "entry_price", "take_profit",
+              "stop_loss", "max_hold", "model_allocation_pct", "reason",
+              "red_flags", "insider_name", "insider_title", "total_amount",
+              "market_cap", "rsi14", "low_52w", "high_52w", "ret_20d_pct",
+              "avg_volume_20d", "signal_id", "range_position_pct", "target_pct",
+          }
+          FORBIDDEN = ("basket_allocation", "basket_shares", "shares", "cash",
+                       "balance", "invested", "account", "deposit", "withdraw",
+                       "equity")
+          MAX_SIGNALS = 200
+          DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+          TICKER_RE = re.compile(r"[A-Z0-9.\-]{1,12}")
+
+          def num(value, lo=None, hi=None):
+              if value is None or value == "":
+                  return ""
+              n = float(value)
+              if n != n or n in (float("inf"), float("-inf")):
+                  raise ValueError("non-finite number")
+              if lo is not None and n < lo:
+                  raise ValueError("number below allowed minimum")
+              if hi is not None and n > hi:
+                  raise ValueError("number above allowed maximum")
+              return repr(n) if n % 1 else str(int(n))
+
+          def text(value, limit):
+              if value is None:
+                  return ""
+              return str(value).replace("\r", " ").replace("\n", " ").strip()[:limit]
+
+          with open("signals-download.json", encoding="utf-8") as source:
+              payload = json.load(source)
+          if not isinstance(payload, dict):
+              raise ValueError("Signal payload is not an object")
+          signals = payload.get("signals")
+          if not isinstance(signals, list):
+              raise ValueError("Signal payload has no signals list")
+          if len(signals) > MAX_SIGNALS:
+              raise ValueError("Unexpected signal feed size")
+
+          rows = []
+          for signal in signals:
+              if not isinstance(signal, dict):
+                  raise ValueError("Signal entry is not an object")
+              unexpected = set(signal) - ALLOWED
+              if unexpected:
+                  raise ValueError("Unexpected public signal fields")
+              for key in signal:
+                  if any(bad in key.lower() for bad in FORBIDDEN):
+                      raise ValueError("Forbidden private field in signal feed")
+
+              ticker = str(signal.get("ticker", "")).upper().strip()
+              if not TICKER_RE.fullmatch(ticker):
+                  raise ValueError("Invalid ticker")
+              signal_date = str(signal.get("signal_date", "")).strip()
+              if not DATE_RE.fullmatch(signal_date):
+                  raise ValueError("Invalid signal date")
+              trade_date = str(signal.get("trade_date", "")).strip()
+              if trade_date and not DATE_RE.fullmatch(trade_date):
+                  trade_date = ""
+              rating = str(signal.get("rating", "")).upper().strip()
+              if rating not in {"A+", "A", "B+", "B"}:
+                  raise ValueError("Invalid rating")
+
+              entry = num(signal.get("entry_price"), lo=0)
+              rows.append({
+                  "signal_date": signal_date,
+                  "trade_date": trade_date,
+                  "ticker": ticker,
+                  "company": text(signal.get("company"), 120),
+                  "rating": rating,
+                  "conviction": text(signal.get("conviction"), 20).upper(),
+                  "hold_mode": text(signal.get("hold_mode"), 20).upper(),
+                  "confirmed_entry": entry,
+                  "current_price": entry,
+                  "take_profit": num(signal.get("take_profit"), lo=0),
+                  "stop_loss": num(signal.get("stop_loss"), lo=0),
+                  "max_hold": num(signal.get("max_hold"), lo=0, hi=100000),
+                  "model_allocation_pct": num(signal.get("model_allocation_pct"), lo=0, hi=100),
+                  "reason": text(signal.get("reason"), 900),
+                  "red_flags": text(signal.get("red_flags"), 700),
+                  "insider_name": text(signal.get("insider_name"), 120),
+                  "insider_title": text(signal.get("insider_title"), 120),
+                  "total_amount": num(signal.get("total_amount"), lo=0),
+                  "market_cap": num(signal.get("market_cap"), lo=0),
+                  "rsi14": num(signal.get("rsi14"), lo=0, hi=100),
+                  "low_52w": num(signal.get("low_52w"), lo=0),
+                  "high_52w": num(signal.get("high_52w"), lo=0),
+                  "ret_20d_pct": num(signal.get("ret_20d_pct")),
+                  "avg_volume_20d": num(signal.get("avg_volume_20d"), lo=0),
+              })
+
+          with open("public_signals_current.csv", "w", encoding="utf-8", newline="") as target:
+              writer = csv.DictWriter(target, fieldnames=CURRENT_COLUMNS, lineterminator="\n")
+              writer.writeheader()
+              for row in rows:
+                  writer.writerow({c: row.get(c, "") for c in CURRENT_COLUMNS})
+
+          # Append to permanent history, de-duplicated on (ticker, signal_date)
+          # exactly as public_signal_logger.py does on the server. Existing
+          # history is only ever added to, never dropped.
+          existing = []
+          if os.path.exists("public_signal_history.csv"):
+              with open("public_signal_history.csv", encoding="utf-8", newline="") as source:
+                  existing = list(csv.DictReader(source))
+          by_key, order = {}, []
+          for row in existing:
+              key = (str(row.get("ticker", "")).upper(), str(row.get("signal_date", "")))
+              if key not in by_key:
+                  order.append(key)
+              by_key[key] = row
+          for row in rows:
+              hist = {c: row.get(c, "") for c in HISTORY_COLUMNS}
+              hist["entry_price"] = row.get("confirmed_entry", "")
+              key = (hist["ticker"], hist["signal_date"])
+              if key not in by_key:
+                  order.append(key)
+              by_key[key] = hist
+          with open("public_signal_history.csv", "w", encoding="utf-8", newline="") as target:
+              writer = csv.DictWriter(target, fieldnames=HISTORY_COLUMNS, lineterminator="\n")
+              writer.writeheader()
+              for key in order:
+                  writer.writerow({c: by_key[key].get(c, "") for c in HISTORY_COLUMNS})
+
+          print("Public feed: %d current signal(s); history now %d." % (len(rows), len(order)))
+          PY
+          rm -f signals-download.json
+
       - name: Publish only when the public ledger changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- synced_bot_trade_ledger.json
+          git add -- synced_bot_trade_ledger.json public_signals_current.csv public_signal_history.csv
           if git diff --cached --quiet; then
-            echo "Public ledger is already current."
+            echo "Public ledger and signal feed are already current."
             exit 0
           fi
-          git commit -m "Sync public bot trade ledger"
+          git commit -m "Sync public bot ledger and signal feed"
           git push origin HEAD:main
