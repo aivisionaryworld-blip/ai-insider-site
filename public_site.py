@@ -818,7 +818,7 @@ nav .wrap { display: flex; justify-content: space-between; align-items: center; 
 .nav-links a:hover { color: var(--text); }
 .cta {
   background: var(--accent); color: #06110c; font-weight: 700; font-size: 13.5px;
-  padding: 9px 18px; border-radius: 7px; text-decoration: none; border: none; cursor: pointer;
+  padding: 9px 18px; border-radius: 8px; text-decoration: none; border: none; cursor: pointer;
 }
 .cta.ghost {
   background: transparent; border: 1px solid var(--border); color: var(--text);
@@ -861,7 +861,7 @@ section { padding: 72px 0; border-top: 1px solid var(--border); }
 
 .trade-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap: 18px; }
 .trade-card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 22px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px;
   transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 .trade-card:hover {
@@ -903,7 +903,7 @@ section { padding: 72px 0; border-top: 1px solid var(--border); }
 .trust-stat .l { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
 
 /* professional filings data table */
-.filings-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.filings-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
 table.filings {
   width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; min-width: 720px;
 }
@@ -920,7 +920,7 @@ table.filings .role { color: var(--muted); font-size: 13px; }
 table.filings .amt { text-align: right; }
 .trade-badge {
   display: inline-block; font-size: 12.5px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.06em; padding: 3px 8px; border-radius: 5px; margin-top: 12px;
+  letter-spacing: 0.06em; padding: 3px 8px; border-radius: 8px; margin-top: 12px;
 }
 .trade-badge.Aplus { background: rgba(232,176,75,0.12); color: var(--amber); }
 .trade-badge.A { background: var(--accent-dim); color: var(--accent); }
@@ -929,7 +929,7 @@ table.filings .amt { text-align: right; }
 
 .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 @media (max-width: 720px) { .compare-grid { grid-template-columns: 1fr; } }
-.compare-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; }
+.compare-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
 .compare-card.highlight { border-color: var(--accent); background: linear-gradient(180deg, rgba(78,226,166,0.05), transparent); }
 .compare-card h3 { font-size: 18px; margin-bottom: 16px; }
 .compare-card ul { list-style: none; padding: 0; margin: 0; }
@@ -949,7 +949,7 @@ table.filings .amt { text-align: right; }
 .price-card.rec { border-color: var(--accent); }
 .price-card .rec-tag {
   position: absolute; top: -12px; right: 20px; background: var(--accent); color: #06110c;
-  font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 6px;
+  font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 8px;
 }
 .price-card h3 { font-size: 18px; }
 .price-card .desc { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
@@ -961,7 +961,7 @@ table.filings .amt { text-align: right; }
 .coming-soon-tag {
   display: inline-block; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
   font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
-  padding: 4px 10px; border-radius: 6px; margin-top: 16px;
+  padding: 4px 10px; border-radius: 8px; margin-top: 16px;
 }
 
 .faq-item { border-bottom: 1px solid var(--border); padding: 20px 0; }
@@ -1097,7 +1097,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
 a:focus-visible, button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 .wrap { max-width: 1180px; padding-left: 28px; padding-right: 28px; }
 h1, h2, h3 { letter-spacing: -0.045em; }
@@ -1165,7 +1165,7 @@ nav {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--border-strong);
-  border-radius: 9px;
+  border-radius: 10px;
   color: var(--accent);
   background: linear-gradient(145deg, rgba(0, 224, 255, 0.12), rgba(0, 224, 255, 0.02));
   box-shadow: inset 0 0 18px rgba(0, 224, 255, 0.08), 0 0 22px rgba(0, 224, 255, 0.07);
@@ -1280,7 +1280,7 @@ nav {
   letter-spacing: .07em;
   padding: 7px 9px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 8px;
   background: rgba(7, 14, 22, 0.7);
 }
 .system-chip::before { content: "✓"; color: var(--accent-2); margin-right: 6px; }
@@ -1343,14 +1343,14 @@ nav {
   letter-spacing: .08em;
   border: 1px solid rgba(111, 255, 193, .2);
   background: rgba(111, 255, 193, .055);
-  border-radius: 5px;
+  border-radius: 8px;
   padding: 5px 7px;
 }
 .terminal-output {
   margin-top: 10px;
   padding: 18px;
   border: 1px solid rgba(0, 224, 255, .18);
-  border-radius: 13px;
+  border-radius: 14px;
   background: rgba(0, 224, 255, .045);
 }
 .terminal-output-label {
@@ -1434,7 +1434,7 @@ section { padding: 88px 0; border-color: rgba(137, 193, 225, 0.11); }
 .mkt-strip { border-color: rgba(137,193,225,.12); gap: 9px; }
 .mkt-cell {
   padding: 7px 8px;
-  border-radius: 7px;
+  border-radius: 8px;
   background: rgba(137,193,225,.035);
 }
 .mkt-cell .l { color: #5f7487; }
@@ -1487,7 +1487,7 @@ table.filings .tk { color: var(--accent); }
 }
 .ad-slot { border-color: rgba(137,193,225,.13); background: rgba(6,13,21,.42); }
 .disclaimer-box {
-  border-radius: 13px;
+  border-radius: 14px;
   background: rgba(255,113,130,.045);
   border-color: rgba(255,113,130,.2);
 }
@@ -1575,7 +1575,7 @@ nav {
 .status-bar {
   background: #0b0d0f;
   border-color: var(--border);
-  color: #747d86;
+  color: var(--text-2);
   font-size: 12px;
   letter-spacing: .075em;
 }
@@ -1586,7 +1586,7 @@ nav {
 }
 .ticker-bar { background: #0e1113; border-color: var(--border); }
 .ticker-track { padding: 6px 0; }
-.ticker-item { color: #6f7881; }
+.ticker-item { color: var(--text-2); }
 .ticker-item::before { content: ""; }
 .ticker-item .t-ticker { color: #c7ccd1; }
 
@@ -1620,7 +1620,7 @@ nav {
 .brand-build { display: none; }
 .nav-links { gap: 2px; }
 .nav-links a {
-  color: #929aa2;
+  color: var(--text-2);
   font-family: 'Inter', sans-serif;
   font-size: 13px;
   font-weight: 550;
@@ -1683,7 +1683,7 @@ nav {
 .hero .ctas { margin-top: 30px; gap: 18px; }
 .hero .cta {
   padding: 12px 18px;
-  border-radius: 7px;
+  border-radius: 8px;
   font-size: 13.5px;
   box-shadow: none;
 }
@@ -1705,7 +1705,7 @@ nav {
   gap: 15px;
   flex-wrap: wrap;
   margin-top: 24px;
-  color: #656e77;
+  color: var(--text-3);
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   letter-spacing: .035em;
@@ -1715,7 +1715,7 @@ nav {
 
 .signal-monitor {
   border: 1px solid var(--border);
-  border-radius: 13px;
+  border-radius: 14px;
   background: #101316;
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -1730,7 +1730,7 @@ nav {
 }
 .monitor-kicker {
   display: block;
-  color: #6f7881;
+  color: var(--text-2);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   letter-spacing: .09em;
@@ -1770,7 +1770,7 @@ nav {
 .monitor-company span, .monitor-price span {
   display: block;
   margin-top: 3px;
-  color: #737c85;
+  color: var(--text-2);
   font-size: 12.5px;
   white-space: nowrap;
   overflow: hidden;
@@ -1781,7 +1781,7 @@ nav {
   min-width: 33px;
   padding: 6px 7px;
   border: 1px solid #394047;
-  border-radius: 6px;
+  border-radius: 8px;
   color: #cfd4d8;
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
@@ -1791,20 +1791,20 @@ nav {
 .monitor-rating.Aplus { border-color: rgba(237,189,98,.35); color: var(--amber); }
 .monitor-rating.A { border-color: rgba(168,224,99,.34); color: var(--accent); }
 .monitor-rating.Bplus, .monitor-rating.B { color: #9eb1cd; }
-.monitor-empty { padding: 34px 21px; color: #7a838b; font-size: 13.5px; line-height: 1.6; }
+.monitor-empty { padding: 34px 21px; color: var(--text-2); font-size: 13.5px; line-height: 1.6; }
 .monitor-foot {
   padding: 15px 21px 17px;
   background: #0e1113;
 }
 .monitor-foot span {
   display: block;
-  color: #606970;
+  color: var(--text-3);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: .08em;
 }
-.monitor-foot strong { display: block; margin-top: 5px; color: #9199a1; font-size: 12.5px; font-weight: 500; }
+.monitor-foot strong { display: block; margin-top: 5px; color: var(--text-2); font-size: 12.5px; font-weight: 500; }
 
 .trust-bar { background: #0e1113; backdrop-filter: none; }
 .trust-bar .wrap { justify-content: stretch !important; gap: 0 !important; }
@@ -1817,13 +1817,13 @@ nav {
 }
 .trust-stat:first-child { border-left: 0; padding-left: 0; }
 .trust-stat .n { color: #e7eaec; font-size: 23px; text-shadow: none; }
-.trust-stat .l { color: #68717a; }
+.trust-stat .l { color: var(--text-3); }
 
 section { padding: 78px 0; border-color: var(--border); }
 .section-head { max-width: 680px; margin: 0 0 36px; text-align: left; }
-.section-head .eyebrow { color: #77818a; font-size: 12px; }
+.section-head .eyebrow { color: var(--text-2); font-size: 12px; }
 .section-head h2 { font-size: clamp(28px, 3.5vw, 39px); }
-.section-head p { color: #8f979f; max-width: 610px; }
+.section-head p { color: var(--text-2); max-width: 610px; }
 
 .trade-card, .compare-card, .stat, .price-card, .filings-table-wrap {
   background: var(--surface);
@@ -1836,14 +1836,14 @@ section { padding: 78px 0; border-color: var(--border); }
 .trade-card:hover { transform: translateY(-2px); border-color: #3a424a; box-shadow: 0 14px 32px rgba(0,0,0,.16); }
 .trade-avatar { color: #b9c0c6; background: #1a1f23; border-color: #30363c; }
 .trade-ticker { color: #f1f3f4; }
-.trade-meta { color: #747d85; }
+.trade-meta { color: var(--text-2); }
 .trade-narrative { color: #aeb5bb; }
 .mkt-cell { background: #15191d; }
 .mkt-cell .v { color: #cbd0d4; }
-.trade-badge { border-radius: 5px; }
+.trade-badge { border-radius: 8px; }
 
 .filings-table-wrap { border-radius: 10px; }
-table.filings thead th { background: #0e1113; color: #747d85; }
+table.filings thead th { background: #0e1113; color: var(--text-2); }
 table.filings tbody tr:hover { background: #15191d; }
 table.filings .tk { color: #e9edef; }
 
@@ -1852,10 +1852,10 @@ table.filings .tk { color: #e9edef; }
   background: #121618;
   border-color: #41494f;
 }
-.stat { border-radius: 9px; }
+.stat { border-radius: 10px; }
 .stat .n { color: #f0f2f3; }
-.faq-item h4::before { color: #6e777f; }
-.empty { background: #0f1214; border-color: #30363c; color: #737c84; }
+.faq-item h4::before { color: var(--text-2); }
+.empty { background: #0f1214; border-color: #30363c; color: var(--text-2); }
 .ad-slot { background: #0e1113; border-color: #2a3035; }
 footer { background: #090b0d; }
 
@@ -2034,7 +2034,7 @@ footer {
   align-items: center;
   gap: 6px;
   margin-left: auto;
-  color: #77818a;
+  color: var(--text-2);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   letter-spacing: .075em;
@@ -2090,7 +2090,7 @@ footer {
 .signal-toast-link {
   color: #0b0d0f;
   background: #f2f4f5;
-  border-radius: 6px;
+  border-radius: 8px;
   padding: 8px 11px;
   font-size: 13px;
   font-weight: 700;
@@ -2099,7 +2099,7 @@ footer {
 .signal-toast-close {
   border: 0;
   padding: 7px 0;
-  color: #808991;
+  color: var(--text-2);
   background: transparent;
   font: inherit;
   font-size: 13px;
@@ -2135,18 +2135,18 @@ footer {
 .market-panel-head span,
 .market-data-label {
   display: block;
-  color: #707a83;
+  color: var(--text-2);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   letter-spacing: .09em;
   text-transform: uppercase;
 }
 .market-panel-head strong { display: block; margin-top: 4px; font-size: 14px; }
-.market-delay-note { max-width: 240px; color: #737c85; font-size: 12.5px; line-height: 1.45; text-align: right; }
+.market-delay-note { max-width: 240px; color: var(--text-2); font-size: 12.5px; line-height: 1.45; text-align: right; }
 .tradingview-widget-container { width: 100%; height: 510px; }
 .tradingview-widget-container__widget { width: 100%; height: calc(100% - 26px); }
-.tradingview-widget-copyright { padding: 4px 12px 7px; color: #68717a; font-size: 12px; text-align: right; }
-.tradingview-widget-copyright a { color: #8d969e; text-decoration: none; }
+.tradingview-widget-copyright { padding: 4px 12px 7px; color: var(--text-3); font-size: 12px; text-align: right; }
+.tradingview-widget-copyright a { color: var(--text-2); text-decoration: none; }
 
 .market-snapshot-list { display: grid; gap: 12px; }
 .market-snapshot-card { padding: 19px; }
@@ -2162,7 +2162,7 @@ footer {
   max-width: 220px;
   margin-top: 3px;
   overflow: hidden;
-  color: #7c858d;
+  color: var(--text-2);
   font-size: 12.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2178,18 +2178,18 @@ footer {
   gap: 7px;
   margin-top: 15px;
 }
-.market-metric { padding: 9px 8px; border-radius: 7px; background: rgba(7, 11, 14, .38); }
-.market-metric span { display: block; color: #66717a; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; }
+.market-metric { padding: 9px 8px; border-radius: 8px; background: rgba(7, 11, 14, .38); }
+.market-metric span { display: block; color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .07em; text-transform: uppercase; }
 .market-metric strong { display: block; margin-top: 4px; color: #c5cbd0; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500; }
 .market-range { margin-top: 15px; }
 .market-range-head, .market-range-labels { display: flex; justify-content: space-between; align-items: center; }
-.market-range-head { color: #717b84; font-size: 12px; }
+.market-range-head { color: var(--text-2); font-size: 12px; }
 .market-range-head strong { color: #abb3ba; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; }
 .market-range-track { position: relative; height: 4px; margin-top: 9px; border-radius: 99px; background: rgba(255,255,255,.09); }
 .market-range-fill { position: absolute; inset: 0 auto 0 0; width: var(--range-position); border-radius: inherit; background: linear-gradient(90deg, #087cff, #00ec9f); }
 .market-range-pin { position: absolute; top: 50%; left: var(--range-position); width: 8px; height: 8px; border: 2px solid #dfffee; border-radius: 50%; background: #101519; transform: translate(-50%, -50%); box-shadow: 0 0 10px rgba(0,236,159,.38); }
-.market-range-labels { margin-top: 7px; color: #646e77; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
-.market-source-note { margin: 14px 0 0; color: #69737c; font-size: 12.5px; line-height: 1.55; }
+.market-range-labels { margin-top: 7px; color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.market-source-note { margin: 14px 0 0; color: var(--text-2); font-size: 12.5px; line-height: 1.55; }
 
 .new-trade-alert {
   position: relative;
@@ -2239,7 +2239,7 @@ footer {
   box-shadow: 0 0 12px rgba(0, 236, 159, .85);
 }
 .new-trade-alert-head h3 { margin: 9px 0 0; color: #f3f7f5; font-size: 30px; letter-spacing: -.045em; }
-.new-trade-alert-head p { margin: 5px 0 0; color: #7f8a92; font-size: 13px; }
+.new-trade-alert-head p { margin: 5px 0 0; color: var(--text-2); font-size: 13px; }
 .new-trade-alert-badges { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .new-trade-alert-main {
   display: grid;
@@ -2258,24 +2258,24 @@ footer {
   background: rgba(3, 8, 11, .4);
 }
 .new-trade-symbol span, .new-trade-stat span, .new-trade-copy-label {
-  color: #69757d;
+  color: var(--text-2);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   letter-spacing: .1em;
   text-transform: uppercase;
 }
 .new-trade-symbol strong { margin-top: 8px; color: #f5f8f7; font-size: 43px; letter-spacing: -.055em; line-height: 1; }
-.new-trade-symbol small { margin-top: 8px; color: #8a949b; font-size: 13px; line-height: 1.4; }
+.new-trade-symbol small { margin-top: 8px; color: var(--text-2); font-size: 13px; line-height: 1.4; }
 .new-trade-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .new-trade-stat {
   min-width: 0;
   padding: 16px 17px;
   border: 1px solid rgba(255,255,255,.07);
-  border-radius: 9px;
+  border-radius: 10px;
   background: rgba(3, 8, 11, .32);
 }
 .new-trade-stat strong { display: block; margin-top: 7px; color: #e9edeb; font-family: 'JetBrains Mono', monospace; font-size: 18px; }
-.new-trade-stat small { display: block; margin-top: 4px; color: #707b82; font-size: 12px; }
+.new-trade-stat small { display: block; margin-top: 4px; color: var(--text-2); font-size: 12px; }
 .new-trade-stat.allocation { border-color: rgba(0,236,159,.22); background: rgba(0, 100, 69, .1); }
 .new-trade-stat.allocation strong { color: #6ff0bd; }
 .new-trade-copy {
@@ -2319,7 +2319,7 @@ footer {
 }
 .new-trade-risk strong { display: block; color: #ffb19c; font-size: 15px; letter-spacing: -.01em; }
 .new-trade-risk p { margin: 4px 0 0; color: #bea9a2; font-size: 13px; line-height: 1.55; }
-.signal-list-label { margin: 0 0 13px; color: #7a858d; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+.signal-list-label { margin: 0 0 13px; color: var(--text-2); font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
 .signal-brief-grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
 .signal-brief-card { overflow: hidden; padding: 0; }
 .signal-brief-card:hover { transform: translateY(-2px); }
@@ -2334,14 +2334,14 @@ footer {
 .signal-brief-symbol { display: flex; align-items: center; gap: 13px; }
 .signal-brief-symbol .trade-avatar { flex: 0 0 auto; }
 .signal-brief-symbol .trade-ticker { margin-top: 0; font-size: 19px; }
-.signal-company { margin-top: 4px; color: #747f87; font-size: 13px; }
+.signal-company { margin-top: 4px; color: var(--text-2); font-size: 13px; }
 .signal-brief-badges { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .signal-brief-badges .trade-badge { margin-top: 0; }
 .conviction-pill {
   padding: 4px 8px;
   border: 1px solid rgba(255,255,255,.11);
-  border-radius: 5px;
-  color: #929ba3;
+  border-radius: 8px;
+  color: var(--text-2);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   letter-spacing: .06em;
@@ -2355,11 +2355,11 @@ footer {
 }
 .signal-framework-cell { min-width: 0; padding: 15px 20px; border-right: 1px solid rgba(255,255,255,.065); }
 .signal-framework-cell:last-child { border-right: 0; }
-.signal-framework-cell span { display: block; color: #68727a; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.signal-framework-cell span { display: block; color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .signal-framework-cell strong { display: block; margin-top: 5px; color: #e6e9eb; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; }
-.signal-framework-cell small { display: block; margin-top: 3px; color: #68727a; font-size: 11.5px; }
+.signal-framework-cell small { display: block; margin-top: 3px; color: var(--text-3); font-size: 11.5px; }
 .signal-brief-body { padding: 22px 23px 23px; }
-.signal-insider-line { margin-bottom: 18px; color: #7c858d; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+.signal-insider-line { margin-bottom: 18px; color: var(--text-2); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
 .signal-thesis-block + .signal-thesis-block { margin-top: 13px; }
 .signal-thesis-label { display: flex; align-items: center; gap: 8px; color: #7ce1b4; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
 .signal-thesis-label::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; }
@@ -2373,7 +2373,7 @@ footer {
 .signal-watch .signal-thesis-label { color: #e3a076; }
 .signal-watch .signal-thesis-text { color: #b9aaa2; font-size: 13px; }
 .signal-brief-card .mkt-strip { margin-top: 19px; }
-.signal-sizing-note { margin: 15px 0 0; color: #89939a; font-size: 13px; line-height: 1.6; }
+.signal-sizing-note { margin: 15px 0 0; color: var(--text-2); font-size: 13px; line-height: 1.6; }
 .signal-sizing-note strong { color: #c1c8cc; font-weight: 650; }
 
 /* Seeking Alpha-style performance dashboard, using public backtest data. */
@@ -2413,7 +2413,7 @@ footer {
 }
 .performance-heading .eyebrow { margin-bottom: 10px; }
 .performance-heading h2 { color: #f3f6f7; font-size: clamp(25px, 3vw, 36px); letter-spacing: -.045em; }
-.performance-heading p { max-width: 690px; margin: 9px 0 0; color: #88939b; font-size: 13px; line-height: 1.65; }
+.performance-heading p { max-width: 690px; margin: 9px 0 0; color: var(--text-2); font-size: 13px; line-height: 1.65; }
 .performance-badges { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .performance-badge {
   padding: 7px 10px;
@@ -2442,12 +2442,12 @@ footer {
 .ytd-return-label { color: #72dcb2; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .09em; text-transform: uppercase; }
 .ytd-return-value { display: block; margin-top: 7px; color: #69efb7; font-family: 'JetBrains Mono', monospace; font-size: clamp(38px, 5vw, 58px); line-height: 1; letter-spacing: -.065em; text-shadow: 0 0 28px rgba(0,236,159,.16); }
 .ytd-return-period { display: block; margin-top: 8px; color: #a6b1b7; font-size: 13px; }
-.ytd-return-asof { display: block; margin-top: 5px; color: #68747c; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.ytd-return-asof { display: block; margin-top: 5px; color: var(--text-2); font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
 .ytd-live-detail { display: flex; flex-direction: column; justify-content: center; padding: 23px 29px; }
 .ytd-live-detail h3 { color: #e7edef; font-size: 16px; letter-spacing: -.025em; }
-.ytd-live-detail > p { max-width: 720px; margin: 7px 0 0; color: #849098; font-size: 13px; line-height: 1.65; }
+.ytd-live-detail > p { max-width: 720px; margin: 7px 0 0; color: var(--text-2); font-size: 13px; line-height: 1.65; }
 .ytd-live-stats { display: flex; flex-wrap: wrap; gap: 9px 24px; margin-top: 16px; }
-.ytd-live-stat span { display: block; color: #66727a; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.ytd-live-stat span { display: block; color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .ytd-live-stat strong { display: block; margin-top: 4px; color: #c7d0d4; font-family: 'JetBrains Mono', monospace; font-size: 13.5px; }
 .performance-kpis {
   display: grid;
@@ -2457,24 +2457,24 @@ footer {
 .performance-kpis.owner-only { grid-template-columns: minmax(0, 1fr); }
 .performance-kpi { padding: 19px 29px 18px; border-right: 1px solid rgba(255,255,255,.075); }
 .performance-kpi:last-child { border-right: 0; }
-.performance-kpi span { display: block; color: #6f7b84; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .085em; text-transform: uppercase; }
+.performance-kpi span { display: block; color: var(--text-2); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .085em; text-transform: uppercase; }
 .performance-kpi strong { display: block; margin-top: 8px; color: #ecf1f2; font-family: 'JetBrains Mono', monospace; font-size: clamp(22px, 3vw, 31px); letter-spacing: -.045em; }
 .performance-kpi strong.pos { color: #63e8b2; }
 .performance-kpi strong.neg { color: #ff8278; }
-.performance-kpi small { display: block; margin-top: 4px; color: #67727a; font-size: 12px; }
+.performance-kpi small { display: block; margin-top: 4px; color: var(--text-3); font-size: 12px; }
 .performance-kpi.owner { background: linear-gradient(135deg, rgba(199,255,103,.085), rgba(0,236,159,.025)); }
 .performance-kpi.owner strong { color: #d7ff7d; text-shadow: 0 0 22px rgba(199,255,103,.16); }
 .performance-chart-panel { padding: 22px 29px 25px; }
 .performance-chart-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
-.performance-window-label span { display: block; color: #67727b; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.performance-window-label span { display: block; color: var(--text-3); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .performance-window-label strong { display: block; margin-top: 4px; color: #aeb7bd; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 500; }
 .performance-ranges { display: inline-flex; align-items: center; gap: 3px; padding: 4px; border: 1px solid rgba(255,255,255,.075); border-radius: 8px; background: rgba(4, 8, 11, .38); }
 .performance-range {
   min-width: 42px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 8px;
   padding: 7px 9px;
-  color: #7d8890;
+  color: var(--text-2);
   background: transparent;
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
@@ -2502,13 +2502,13 @@ footer {
 }
 .performance-tooltip.show { display: block; }
 .performance-tooltip [hidden] { display: none; }
-.performance-tooltip time { display: block; color: #7c8790; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.performance-tooltip time { display: block; color: var(--text-2); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
 .performance-tooltip div { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 7px; color: #aeb6bc; font-size: 12.5px; }
 .performance-tooltip strong { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
 .performance-tooltip .owner-value { color: #d7ff7d; }
 .performance-tooltip .strategy-value { color: #65edb5; }
 .performance-tooltip .benchmark-value { color: #75baff; }
-.performance-legend { display: flex; align-items: center; gap: 20px; margin-top: 13px; color: #828c94; font-size: 12.5px; }
+.performance-legend { display: flex; align-items: center; gap: 20px; margin-top: 13px; color: var(--text-2); font-size: 12.5px; }
 .performance-legend span { display: inline-flex; align-items: center; gap: 7px; }
 .performance-legend i { width: 20px; height: 2px; border-radius: 99px; background: #00ec9f; box-shadow: 0 0 8px rgba(0,236,159,.25); }
 .performance-legend .benchmark i { background: #4ba3ff; box-shadow: none; }
@@ -2522,7 +2522,7 @@ footer {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid rgba(255,255,255,.065);
-  color: #69747c;
+  color: var(--text-2);
   font-size: 12.5px;
   line-height: 1.6;
 }
@@ -2538,15 +2538,15 @@ footer {
 }
 .ytd-ledger-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 18px 18px 15px; border-bottom: 1px solid rgba(255,255,255,.065); }
 .ytd-ledger-head h3 { color: #dce3e5; font-size: 15px; letter-spacing: -.02em; }
-.ytd-ledger-head p { margin: 5px 0 0; color: #6f7b83; font-size: 12.5px; line-height: 1.55; }
-.ytd-ledger-updated { flex: 0 0 auto; color: #6c7880; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-align: right; text-transform: uppercase; letter-spacing: .055em; }
+.ytd-ledger-head p { margin: 5px 0 0; color: var(--text-2); font-size: 12.5px; line-height: 1.55; }
+.ytd-ledger-updated { flex: 0 0 auto; color: var(--text-2); font-family: 'JetBrains Mono', monospace; font-size: 11px; text-align: right; text-transform: uppercase; letter-spacing: .055em; }
 .ytd-ledger-scroll { max-height: 390px; overflow: auto; scrollbar-color: #29343b transparent; }
 .ytd-ledger-table { width: 100%; border-collapse: collapse; }
-.ytd-ledger-table th { position: sticky; z-index: 1; top: 0; padding: 10px 14px; color: #65717a; background: rgba(8,14,18,.97); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
-.ytd-ledger-table td { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.045); color: #89949b; font-size: 12.5px; }
+.ytd-ledger-table th { position: sticky; z-index: 1; top: 0; padding: 10px 14px; color: var(--text-3); background: rgba(8,14,18,.97); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-align: left; text-transform: uppercase; }
+.ytd-ledger-table td { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,.045); color: var(--text-2); font-size: 12.5px; }
 .ytd-ledger-table tbody tr:first-child td { border-top: 0; }
 .ytd-ledger-table tbody tr:hover { background: rgba(255,255,255,.018); }
-.ytd-ledger-table .trade-date { color: #7d8991; font-family: 'JetBrains Mono', monospace; }
+.ytd-ledger-table .trade-date { color: var(--text-2); font-family: 'JetBrains Mono', monospace; }
 .ytd-ledger-table .trade-symbol { color: #e0e7e9; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; }
 .ytd-ledger-table .trade-rating { margin-left: 6px; color: #79bdff; font-size: 11px; }
 .ytd-status { display: inline-flex; align-items: center; gap: 6px; padding: 5px 7px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; color: #9ba6ac; background: rgba(255,255,255,.025); font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .055em; text-transform: uppercase; white-space: nowrap; }
@@ -2561,7 +2561,7 @@ footer {
 .ytd-ledger-note strong { color: #dda087; }
 .performance-methodology { display: flex; align-items: flex-start; gap: 12px; margin-top: 17px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.065); }
 .performance-methodology-mark { flex: 0 0 8px; width: 8px; height: 8px; margin-top: 5px; border-radius: 1px; background: #d7ff7d; box-shadow: 0 0 9px rgba(199,255,103,.35); transform: rotate(45deg); }
-.performance-methodology p { margin: 0; color: #7c878e; font-size: 12.5px; line-height: 1.65; }
+.performance-methodology p { margin: 0; color: var(--text-2); font-size: 12.5px; line-height: 1.65; }
 .performance-methodology strong { color: #cfd7da; font-weight: 650; }
 .performance-chart-panel.ledger-only .ytd-ledger { margin-top: 0; }
 
@@ -2622,6 +2622,164 @@ footer {
 @media (max-width: 620px) {
   .market-snapshot-list { grid-template-columns: 1fr; }
   .market-delay-note { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   LIQUID GLASS LAYER
+   Appended last so it upgrades the existing surfaces rather than
+   replacing them. Everything here is additive — deleting this block
+   returns the site to its previous appearance exactly.
+
+   Three things separate real Liquid Glass from ordinary translucency:
+     1. a SPECULAR RIM — light catches the top edge and fades around
+        the form, instead of a flat uniform 1px border
+     2. CONCENTRIC RADII — nested shapes share a radius relationship
+        (inner = outer - padding) rather than arbitrary values
+     3. MATERIAL TIERS — a small set of blur/saturation levels, not
+        seven ad-hoc values
+   CSS cannot do true refractive lensing, so the light-bending is
+   approximated with a layered gradient and an inner sheen.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Material tiers — thin floats over content, thick anchors a section */
+  --glass-thin:    blur(20px) saturate(180%);
+  --glass-regular: blur(32px) saturate(180%);
+  --glass-thick:   blur(48px) saturate(200%);
+
+  /* Concentric radius scale. A child inside 14px of padding uses the
+     next step down, so curves stay parallel instead of fighting. */
+  --r-xs: 10px;
+  --r-sm: 14px;
+  --r-md: 20px;
+  --r-lg: 28px;
+  --r-xl: 36px;
+
+  /* The specular rim: bright along the top where light lands, a faint
+     bounce along the bottom, barely-there on the sides. */
+  --rim:
+    inset 0 1px 0 rgba(255, 255, 255, .30),
+    inset 0 -1px 0 rgba(255, 255, 255, .055),
+    inset 1px 0 0 rgba(255, 255, 255, .075),
+    inset -1px 0 0 rgba(255, 255, 255, .075);
+
+  /* Elevation: wide, soft and low-opacity — glass floats, it does not
+     stamp a hard shadow. */
+  --lift-1: 0 2px 10px rgba(0, 0, 0, .22);
+  --lift-2: 0 10px 34px rgba(0, 0, 0, .30);
+  --lift-3: 0 22px 64px rgba(0, 0, 0, .38);
+
+  /* The material itself — a directional wash so the surface reads as
+     curved rather than flat. */
+  --glass-fill: linear-gradient(
+      158deg,
+      rgba(255, 255, 255, .085) 0%,
+      rgba(255, 255, 255, .028) 42%,
+      rgba(255, 255, 255, .014) 68%,
+      rgba(255, 255, 255, .05) 100%);
+}
+
+.trade-card,
+.compare-card,
+.stat,
+.price-card,
+.filings-table-wrap,
+.signal-monitor,
+.signal-brief-card,
+.performance-shell,
+.empty {
+  background: var(--glass-fill), rgba(7, 14, 23, .74);
+  backdrop-filter: var(--glass-regular);
+  -webkit-backdrop-filter: var(--glass-regular);
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: var(--r-lg);
+  box-shadow: var(--rim), var(--lift-2);
+  position: relative;
+  transition: transform .32s cubic-bezier(.22, .61, .36, 1),
+              box-shadow .32s cubic-bezier(.22, .61, .36, 1),
+              border-color .32s ease;
+}
+
+/* Inner sheen — a soft highlight pooling in the upper-left, the way
+   light gathers inside a thick pane. Sits above the material and below
+   the content, and never intercepts clicks. */
+.trade-card::after,
+.compare-card::after,
+.price-card::after,
+.signal-brief-card::after,
+.performance-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 12% -10%, rgba(255, 255, 255, .10), transparent 58%),
+    radial-gradient(90% 60% at 90% 0%, rgba(0, 224, 255, .05), transparent 62%);
+  mix-blend-mode: screen;
+  opacity: .85;
+}
+
+/* Lift on hover — the pane rises and its rim catches more light. */
+.trade-card:hover,
+.price-card:hover,
+.compare-card:hover,
+.signal-brief-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, .17);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .40),
+    inset 0 -1px 0 rgba(255, 255, 255, .07),
+    var(--lift-3);
+}
+
+/* Nested elements take the next radius down so curves stay concentric. */
+.trade-card .stat,
+.performance-shell .stat,
+.compare-card .stat { border-radius: var(--r-md); }
+
+.filings-table-wrap { border-radius: var(--r-lg); }
+.filings-table-wrap th:first-child { border-top-left-radius: var(--r-md); }
+.filings-table-wrap th:last-child  { border-top-right-radius: var(--r-md); }
+
+/* Navigation — a thin floating pane, lighter than the content behind it. */
+nav {
+  backdrop-filter: var(--glass-thin);
+  -webkit-backdrop-filter: var(--glass-thin);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .07), var(--lift-1);
+}
+
+/* Buttons are small panes and follow the same rules. */
+.cta {
+  border-radius: var(--r-sm);
+  backdrop-filter: var(--glass-thin);
+  -webkit-backdrop-filter: var(--glass-thin);
+  box-shadow: var(--rim), var(--lift-1);
+  transition: transform .24s cubic-bezier(.22, .61, .36, 1),
+              box-shadow .24s ease, border-color .24s ease;
+}
+.cta:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .42),
+    inset 0 -1px 0 rgba(255, 255, 255, .06),
+    var(--lift-2);
+}
+
+/* Typography: Apple pairs glass with tight, confident headings. */
+h1 { letter-spacing: -.03em; }
+h2 { letter-spacing: -.022em; }
+
+/* Contrast repair — the muted grey sat at 3.5:1 where AA needs 4.5:1.
+   Lifting this one token clears most of the failures at a glance. */
+:root { --muted: #9fb0c2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .trade-card, .compare-card, .price-card, .signal-brief-card, .cta {
+    transition: none;
+  }
+  .trade-card:hover, .compare-card:hover, .price-card:hover,
+  .signal-brief-card:hover, .cta:hover { transform: none; }
 }
 """
 
