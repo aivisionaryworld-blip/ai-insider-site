@@ -28,13 +28,14 @@ have a securities attorney review before real launch or any paid tier.
 import hashlib
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from functools import lru_cache
 
 import numpy as np
 import pandas as pd
-from flask import Flask, render_template_string, abort, jsonify
+from flask import Flask, render_template_string, abort, jsonify, request
 
 from returns_engine import compute_all_returns, METRIC_EXPLANATIONS
 
@@ -1443,6 +1444,28 @@ table.filings .amt { text-align: right; }
 /* ------------------------------------------------------------
    market dashboard (tradingview + snapshots)
    ------------------------------------------------------------ */
+.ticker-search {
+  display: flex; align-items: center; gap: 10px; max-width: 460px; margin: 0 auto 14px;
+  background: var(--surface-solid); border: 1px solid var(--border); border-radius: 999px;
+  padding: 6px 8px 6px 18px; transition: border-color .18s;
+}
+.ticker-search:focus-within { border-color: var(--border-strong); }
+.ticker-search-icon { width: 17px; height: 17px; color: var(--text-3); flex-shrink: 0; }
+.ticker-search input {
+  flex: 1; min-width: 0; background: none; border: none; outline: none;
+  color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 600;
+  letter-spacing: .02em;
+}
+.ticker-search input::placeholder { color: var(--text-3); font-family: 'Inter', sans-serif; font-weight: 400; letter-spacing: normal; }
+.ticker-search button {
+  flex-shrink: 0; background: linear-gradient(135deg, var(--accent), var(--green)); color: #04151a;
+  font-weight: 700; font-size: 13px; border: none; border-radius: 999px; padding: 10px 20px; cursor: pointer;
+  transition: transform .18s var(--ease), box-shadow .25s var(--ease);
+}
+.ticker-search button:hover { transform: translateY(-1px); box-shadow: var(--glow-accent); }
+.ticker-search-error { text-align: center; color: var(--amber); font-size: 12.5px; margin: -6px 0 14px; }
+@media (max-width: 480px) { .ticker-search { border-radius: var(--r-lg); flex-wrap: wrap; padding: 12px; } .ticker-search input { flex-basis: 100%; padding: 6px 4px; } .ticker-search button { flex: 1; } }
+
 .market-dashboard { display: grid; grid-template-columns: 1.8fr 1fr; gap: 22px; align-items: start; }
 @media (max-width: 900px) { .market-dashboard { grid-template-columns: 1fr; } }
 
@@ -2357,6 +2380,14 @@ HOME_TEMPLATE = """
     <h2>Price action around every signal</h2>
     <p>Explore the chart, then compare it with the market conditions captured by the bot during its latest scan.</p>
   </div>
+  <form class="ticker-search" action="/#market-data" method="get" role="search" aria-label="Search a stock ticker">
+    <svg class="ticker-search-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M20 20l-3.8-3.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <input type="text" name="symbol" placeholder="Search any ticker &mdash; AAPL, TSLA, NVDA..." value="{{ chart_symbol or '' }}" maxlength="6" autocomplete="off" spellcheck="false" autocapitalize="characters" aria-label="Ticker symbol">
+    <button type="submit">Search</button>
+  </form>
+  {% if requested_symbol and not chart_symbol %}
+  <p class="ticker-search-error">"{{ requested_symbol }}" doesn't look like a valid ticker &mdash; showing the default chart instead.</p>
+  {% endif %}
   <div class="market-dashboard">
     <div class="market-chart-panel">
       <div class="market-panel-head">
@@ -2380,7 +2411,7 @@ HOME_TEMPLATE = """
           "locale": "en",
           "save_image": false,
           "style": "1",
-          "symbol": "{{ signals[0].ticker if signals else 'AMEX:SPY' }}",
+          "symbol": "{{ chart_symbol or (signals[0].ticker if signals else 'AMEX:SPY') }}",
           "theme": "dark",
           "timezone": "Etc/UTC",
           "backgroundColor": "rgba(8, 12, 16, 0)",
@@ -3089,6 +3120,8 @@ HOME_TEMPLATE = """
 
 @app.route("/")
 def home():
+    requested_symbol = request.args.get("symbol", "").strip().upper()
+    chart_symbol = requested_symbol if re.fullmatch(r"[A-Z]{1,6}(\.[A-Z]{1,2})?", requested_symbol) else None
     ytd_snapshot = load_public_ytd_snapshot()
     ytd_ledger = load_ytd_trade_ledger(ytd_snapshot)
     performance = load_performance_comparison()
@@ -3113,6 +3146,8 @@ def home():
         ytd_snapshot=ytd_snapshot,
         ytd_ledger=ytd_ledger,
         market_trades=load_market_trades(),
+        chart_symbol=chart_symbol,
+        requested_symbol=requested_symbol,
     )
 
 
