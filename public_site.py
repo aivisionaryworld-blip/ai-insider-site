@@ -966,6 +966,8 @@ BASE_CSS = """
 *, *::before, *::after { box-sizing: border-box; }
 html { color-scheme: dark; }
 html[data-theme="light"] { color-scheme: light; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+section[id] { scroll-margin-top: 132px; }
 body {
   background: var(--bg); color: var(--text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -1141,6 +1143,40 @@ nav {
 .theme-icon-moon { display: none; }
 :root[data-theme="light"] .theme-icon-sun { display: none; }
 :root[data-theme="light"] .theme-icon-moon { display: block; }
+
+.nav-hamburger {
+  display: none; flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  align-items: center; justify-content: center; gap: 4px; flex-direction: column;
+  background: var(--surface-2); border: 1px solid var(--border); cursor: pointer; padding: 0;
+  transition: border-color .18s;
+}
+.nav-hamburger:hover { border-color: var(--border-strong); }
+.nav-hamburger span { display: block; width: 15px; height: 1.6px; background: var(--text-2); border-radius: 1px; transition: transform .22s var(--ease), opacity .18s; }
+.nav-hamburger[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+.nav-hamburger[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+.nav-hamburger[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+@media (max-width: 768px) {
+  .nav-hamburger { display: inline-flex; }
+  .nav-links {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+    height: 100vh; height: 100dvh;
+    flex-direction: column; align-items: stretch; gap: 2px; padding: 88px 22px 24px;
+    background: var(--bg-elevated); overflow-y: auto; mask-image: none; -webkit-mask-image: none;
+    transform: translateX(100%); transition: transform .28s var(--ease-out);
+  }
+  .nav-links.mobile-open { transform: translateX(0); }
+  .nav-links a { padding: 15px 4px; border-bottom: 1px solid var(--border-hair); font-size: 16px; }
+  .nav-links a::after { display: none; }
+  body.nav-locked { overflow: hidden; }
+}
+
+@media (max-width: 480px) {
+  .nav-shell { padding: 12px 16px; }
+  .brand-build { display: none; }
+  .nav-pinned { gap: 8px; margin-left: 10px; }
+  .nav-pinned .cta { padding: 8px 13px; font-size: 12.5px; }
+}
 
 /* signal toast */
 .signal-toast-region {
@@ -1352,11 +1388,13 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 .ytd-ledger-head p { font-size: 14px; color: var(--text-3); margin-top: 6px; max-width: 420px; }
 .ytd-ledger-updated { text-align: right; font-size: 12px; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
 .ytd-ledger-updated strong { display: block; font-family: 'JetBrains Mono', monospace; color: var(--text-2); font-size: 13.5px; text-transform: none; letter-spacing: 0; margin-top: 2px; }
-.ytd-ledger-scroll { overflow-x: auto; border: 1px solid var(--border-hair); border-radius: var(--r-md); background: var(--surface-solid); -webkit-overflow-scrolling: touch; }
+.ytd-ledger-scroll { overflow: auto; max-height: 620px; border: 1px solid var(--border-hair); border-radius: var(--r-md); background: var(--surface-solid); -webkit-overflow-scrolling: touch; }
 .ytd-ledger-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 14px; min-width: 560px; }
 .ytd-ledger-table thead th {
+  position: sticky; top: 0; z-index: 2;
   text-align: left; padding: 11px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em;
   color: var(--text-3); border-bottom: 1px solid var(--border-hair); font-weight: 600;
+  background: var(--surface-solid); backdrop-filter: var(--glass-thin); -webkit-backdrop-filter: var(--glass-thin);
 }
 .ytd-ledger-table tbody td { padding: 10px 16px; border-bottom: 1px solid var(--border-hair); }
 .ytd-ledger-table tbody tr:last-child td { border-bottom: none; }
@@ -1426,11 +1464,13 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 /* ------------------------------------------------------------
    filings table
    ------------------------------------------------------------ */
-.filings-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-solid); -webkit-overflow-scrolling: touch; }
+.filings-table-wrap { overflow: auto; max-height: 680px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-solid); -webkit-overflow-scrolling: touch; }
 table.filings { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 14.5px; min-width: 740px; }
 table.filings thead th {
+  position: sticky; top: 0; z-index: 2;
   text-align: left; padding: 13px 18px; font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em;
   color: var(--text-3); border-bottom: 1px solid var(--border); font-weight: 600; background: var(--surface-2);
+  backdrop-filter: var(--glass-thin); -webkit-backdrop-filter: var(--glass-thin);
 }
 table.filings tbody td { padding: 12px 18px; border-bottom: 1px solid var(--border-hair); }
 table.filings tbody tr:last-child td { border-bottom: none; }
@@ -1464,6 +1504,14 @@ table.filings .amt { text-align: right; }
 }
 .ticker-search button:hover { transform: translateY(-1px); box-shadow: var(--glow-accent); }
 .ticker-search-error { text-align: center; color: var(--amber); font-size: 12.5px; margin: -6px 0 14px; }
+.ticker-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 0 0 28px; }
+.ticker-chip {
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: var(--text-2);
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px;
+  transition: border-color .18s, color .18s, background .18s;
+}
+.ticker-chip:hover { color: var(--text); border-color: var(--border-strong); }
+.ticker-chip.active { color: var(--accent); border-color: var(--border-strong); background: var(--accent-dim); }
 @media (max-width: 480px) { .ticker-search { border-radius: var(--r-lg); flex-wrap: wrap; padding: 12px; } .ticker-search input { flex-basis: 100%; padding: 6px 4px; } .ticker-search button { flex: 1; } }
 
 .market-dashboard { display: grid; grid-template-columns: 1.8fr 1fr; gap: 22px; align-items: start; }
@@ -1755,7 +1803,7 @@ NAV = """
       <span>INSIDER</span>
       <span class="brand-build">INTEL // 24</span>
     </a>
-    <div class="nav-links">
+    <div class="nav-links" id="nav-links-panel">
       <a href="/#performance">Dashboard</a>
       <a href="/#signals">Signals</a>
       <a href="/#market-data">Markets</a>
@@ -1773,6 +1821,9 @@ NAV = """
     <button type="button" class="theme-toggle" data-theme-toggle aria-label="Switch between light and dark theme" title="Switch theme">
       <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4.3" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.6v2.2M12 19.2v2.2M4.3 4.3l1.6 1.6M18.1 18.1l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.3 19.7l1.6-1.6M18.1 5.9l1.6-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
       <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.3A8.4 8.4 0 1 1 9.7 4a6.9 6.9 0 0 0 10.3 10.3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+    </button>
+    <button type="button" class="nav-hamburger" data-nav-toggle aria-label="Open menu" aria-expanded="false" aria-controls="nav-links-panel">
+      <span></span><span></span><span></span>
     </button>
     </div>
   </div>
@@ -1821,6 +1872,28 @@ FOOTER = """
       window.dispatchEvent(new CustomEvent('aiinsider:themechange', { detail: { theme: next } }));
     });
   }
+})();
+
+(() => {
+  const hamburger = document.querySelector('[data-nav-toggle]');
+  const panel = document.getElementById('nav-links-panel');
+  if (!hamburger || !panel) return;
+  const closeMenu = () => {
+    panel.classList.remove('mobile-open');
+    hamburger.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('nav-locked');
+  };
+  const openMenu = () => {
+    panel.classList.add('mobile-open');
+    hamburger.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('nav-locked');
+  };
+  hamburger.addEventListener('click', () => {
+    if (panel.classList.contains('mobile-open')) closeMenu(); else openMenu();
+  });
+  panel.querySelectorAll('a').forEach(link => link.addEventListener('click', closeMenu));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+  window.addEventListener('resize', () => { if (window.innerWidth > 768) closeMenu(); });
 })();
 
 if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -2388,6 +2461,11 @@ HOME_TEMPLATE = """
   {% if requested_symbol and not chart_symbol %}
   <p class="ticker-search-error">"{{ requested_symbol }}" doesn't look like a valid ticker &mdash; showing the default chart instead.</p>
   {% endif %}
+  <div class="ticker-chips">
+    {% for t in ['SPY', 'AAPL', 'TSLA', 'NVDA', 'MSFT', 'GOOGL'] %}
+    <a href="/?symbol={{ t }}#market-data" class="ticker-chip{{ ' active' if chart_symbol == t else '' }}">{{ t }}</a>
+    {% endfor %}
+  </div>
   <div class="market-dashboard">
     <div class="market-chart-panel">
       <div class="market-panel-head">
