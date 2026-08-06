@@ -1536,12 +1536,13 @@ NAV = """
     <div class="nav-links">
       <a href="/#performance">Dashboard</a>
       <a href="/#signals">Signals</a>
-      <a href="/#market-data">Market</a>
+      <a href="/#market-data">Markets</a>
       <a href="/track-record">Track Record</a>
       <a href="/leaderboard">Leaderboard</a>
-      <a href="/how-it-works">How It Works</a>
+      <a href="/how-it-works">Methodology</a>
       <a href="/#pricing">Pricing</a>
-      <a class="cta ghost" href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
+      <a href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
+      <a class="cta" href="/#signals">Start Free</a>
     </div>
   </div>
 </nav>
@@ -2018,10 +2019,10 @@ HOME_TEMPLATE = """
   <div class="hero-layout">
     <div class="hero-copy">
       <span class="eyebrow"><span class="eyebrow-rule"></span>Independent research on public SEC filings</span>
-      <h1>Insider buying, filtered for what matters.</h1>
-      <p>AI Insider screens open-market purchases by executives and directors, then publishes the setups that clear a rules-based process tested across more than two decades of Form 4 history.</p>
+      <h1>Thousands of insider filings. The signals that <span class="grad">actually mattered</span>.</h1>
+      <p>AI Insider screens every open-market purchase by executives and directors against a rules-based model backtested across 20+ years of Form 4 outcomes &mdash; then explains, in plain English, why each signal cleared the bar.</p>
       <div class="ctas">
-        <a class="cta" href="#signals">View latest signals</a>
+        <a class="cta" href="#signals">Start free &mdash; view signals</a>
         <a class="cta ghost" href="/how-it-works">Read the methodology &rarr;</a>
       </div>
       <div class="hero-note" aria-label="Research principles">
@@ -2051,7 +2052,14 @@ HOME_TEMPLATE = """
   </div>
 </div></div>
 
-{% if trust_stats %}
+{% if performance and performance.trade_count %}
+<div class="trust-bar"><div class="wrap" style="display:flex;justify-content:center;gap:48px;flex-wrap:wrap;">
+  <div class="trust-stat"><div class="n">20+</div><div class="l">Years SEC Data</div></div>
+  <div class="trust-stat"><div class="n">{{ performance.trade_count }}</div><div class="l">Backtested Trades</div></div>
+  {% if performance.win_rate is not none %}<div class="trust-stat"><div class="n">{{ performance.win_rate }}%</div><div class="l">Historical Win Rate</div></div>{% endif %}
+  <div class="trust-stat"><div class="n">AI</div><div class="l">Ranked Insider Signals</div></div>
+</div></div>
+{% elif trust_stats %}
 <div class="trust-bar"><div class="wrap" style="display:flex;justify-content:center;gap:48px;flex-wrap:wrap;">
   <div class="trust-stat"><div class="n">{{ trust_stats.total_filings }}</div><div class="l">Filings Logged</div></div>
   <div class="trust-stat"><div class="n">{{ trust_stats.unique_tickers }}</div><div class="l">Tickers Tracked</div></div>
@@ -2064,7 +2072,7 @@ HOME_TEMPLATE = """
   <div class="section-head">
     <span class="eyebrow">01 / Signal ledger</span>
     <h2>Latest insider filings</h2>
-    <p>A dense, timestamped view of every logged signal. Public SEC Form 4 data, most recent first.</p>
+    <p>A dense, timestamped view of every logged signal. Public SEC Form 4 data, most recent first.{% if trust_stats and performance %} {{ trust_stats.total_filings }} filings logged across {{ trust_stats.unique_tickers }} tickers and {{ trust_stats.unique_insiders }} insiders over {{ trust_stats.days_tracked }} days tracked.{% endif %}</p>
   </div>
   {% if filings %}
   <div class="filings-table-wrap">
