@@ -124,6 +124,80 @@ def load_ticker_items(limit=15):
     return recent[["ticker", "rating", "signal_date"]].to_dict("records")
 
 
+def load_market_trades(limit=25):
+    """Real, unfiltered, market-wide open-market Form 4 trades pulled
+    straight from SEC EDGAR by sync_market_insider_trades.py.
+
+    Distinct from load_public_signals()/load_ticker_items(): those only
+    ever show trades that already passed AI Insider's own scoring model.
+    This is the raw stream the model screens, for the "every real insider
+    trade" banner. Honest empty state (an empty list) until the sync
+    workflow has produced data — never fabricated.
+    """
+    path = os.path.join(BASE_DIR, "public_market_insider_trades.csv")
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return []
+    if df.empty:
+        return []
+    recent = df.sort_values(["transaction_date", "filed_date"], ascending=False).head(limit)
+    cols = ["transaction_date", "ticker", "company", "insider_name",
+            "insider_title", "transaction_type", "shares", "price", "value"]
+    for c in cols:
+        if c not in recent.columns:
+            recent[c] = None
+    return recent[cols].to_dict("records")
+
+
+def load_congress_trades(limit=200):
+    """Real congressional stock-trading disclosures synced from the House
+    Stock Watcher / Senate Stock Watcher datasets by
+    sync_congress_trades.py. Honest empty state until the sync has
+    produced data — never fabricated.
+    """
+    path = os.path.join(BASE_DIR, "public_congress_trades.csv")
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return []
+    if df.empty:
+        return []
+    recent = df.sort_values(["transaction_date", "disclosure_date"], ascending=False).head(limit)
+    cols = ["disclosure_date", "transaction_date", "chamber", "member", "ticker",
+            "asset_description", "transaction_type", "amount_range", "state_or_district"]
+    for c in cols:
+        if c not in recent.columns:
+            recent[c] = None
+    return recent[cols].to_dict("records")
+
+
+def load_market_news(limit=40):
+    """Real market-news headlines synced from public RSS feeds by
+    sync_market_news.py. Honest empty state until the sync has produced
+    data — never fabricated.
+    """
+    path = os.path.join(BASE_DIR, "public_market_news.csv")
+    if not os.path.exists(path):
+        return []
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return []
+    if df.empty:
+        return []
+    recent = df.head(limit)  # already sorted newest-first by the sync script
+    cols = ["published", "source", "title", "link"]
+    for c in cols:
+        if c not in recent.columns:
+            recent[c] = None
+    return recent[cols].to_dict("records")
+
+
 def _newest_signal_date(path):
     """Newest signal_date in a public feed CSV, or None."""
     if not os.path.exists(path):
@@ -751,14 +825,14 @@ def load_live_track_record():
 # ── shared design system ────────────────────────────────────────
 
 BASE_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ============================================================
    AI INSIDER — design system
    One token set, one cascade. Void-black terminal aesthetic:
    glass surfaces, a signal-triad accent palette (cyan / green /
    lime) that matches the chart-drawing JS exactly, tabular-nums
-   mono for every number, Space Grotesk for display type.
+   mono for every number, one restrained Inter weight scale for display type.
    ============================================================ */
 
 :root {
@@ -832,10 +906,65 @@ BASE_CSS = """
   --bg-blob-1: #a8e063;
   --bg-blob-2: #edbd62;
   --bg-blob-3: #5f7de8;
+
+  --nav-bg: rgba(6,8,13,.72);
+}
+
+/* Light theme — same institutional system, same accent family, every
+   color darkened enough off white to hold AA text contrast. Toggled via
+   [data-theme] on <html>, set before first paint by THEME_INIT so there
+   is no flash of the wrong theme. */
+:root[data-theme="light"] {
+  --void: #eef1f6;
+  --bg: #f4f6fa;
+  --bg-elevated: #ffffff;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-solid: #ffffff;
+  --surface-2: rgba(236, 240, 247, 0.9);
+  --surface-3: #eef1f6;
+  --border: rgba(15, 23, 42, 0.12);
+  --border-strong: rgba(0, 120, 145, 0.4);
+  --border-hair: rgba(15, 23, 42, 0.08);
+
+  --text: #0c1524;
+  --text-2: #45516a;
+  --text-3: #6b788f;
+  --muted: #45516a;
+
+  --accent: #0089ab;
+  --accent-dim: rgba(0, 137, 171, 0.1);
+  --lime: #7a7a10;
+  --lime-dim: rgba(122, 122, 16, 0.12);
+  --green: #067a56;
+  --green-dim: rgba(6, 122, 86, 0.1);
+  --blue: #1c64d1;
+  --blue-dim: rgba(28, 100, 209, 0.1);
+  --violet: #6a51e0;
+  --amber: #a2680a;
+  --amber-dim: rgba(162, 104, 10, 0.12);
+  --red: #c62b45;
+  --red-dim: rgba(198, 43, 69, 0.1);
+
+  --aplus: var(--amber);
+  --a: var(--green);
+  --b: #4a6fa5;
+
+  --glass-fill: linear-gradient(158deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.3) 42%, rgba(255,255,255,.14) 68%, rgba(255,255,255,.4) 100%);
+  --rim: inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(15,23,42,.05), inset 1px 0 0 rgba(15,23,42,.03), inset -1px 0 0 rgba(15,23,42,.03);
+
+  --lift-1: 0 2px 8px rgba(15,23,42,.07);
+  --lift-2: 0 12px 28px rgba(15,23,42,.09);
+  --lift-3: 0 24px 56px rgba(15,23,42,.12);
+  --shadow: var(--lift-2);
+  --glow-accent: 0 0 0 1px rgba(0,137,171,.25), 0 8px 24px rgba(0,137,171,.12);
+  --glow-green: 0 0 0 1px rgba(6,122,86,.25), 0 8px 24px rgba(6,122,86,.12);
+
+  --nav-bg: rgba(255,255,255,.72);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { color-scheme: dark; }
+html[data-theme="light"] { color-scheme: light; }
 body {
   background: var(--bg); color: var(--text);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -845,7 +974,7 @@ body {
   text-rendering: optimizeLegibility;
 }
 .mono, .mono * { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-h1, h2, h3 { font-family: 'Space Grotesk', 'Inter', sans-serif; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+h1, h2, h3 { font-family: 'Inter', -apple-system, sans-serif; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 h1 { letter-spacing: -.03em; }
 h2 { letter-spacing: -.022em; }
 h4 { margin: 0; font-family: 'Inter', sans-serif; }
@@ -877,6 +1006,12 @@ body::after {
 .bg-mesh .b1 { width: 480px; height: 480px; background: var(--bg-blob-1); top: -160px; left: -100px; animation: drift1 22s ease-in-out infinite; }
 .bg-mesh .b2 { width: 420px; height: 420px; background: var(--bg-blob-2); top: 20%; right: -140px; animation: drift2 26s ease-in-out infinite; }
 .bg-mesh .b3 { width: 380px; height: 380px; background: var(--bg-blob-3); bottom: -120px; left: 30%; animation: drift3 30s ease-in-out infinite; }
+:root[data-theme="light"] body::after {
+  background-image:
+    linear-gradient(rgba(15,23,42,.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15,23,42,.045) 1px, transparent 1px);
+}
+:root[data-theme="light"] .bg-mesh span { opacity: .13; }
 @keyframes drift1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(60px,80px); } }
 @keyframes drift2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-70px,50px); } }
 @keyframes drift3 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(50px,-60px); } }
@@ -906,7 +1041,7 @@ body::after {
    ------------------------------------------------------------ */
 nav {
   position: sticky; top: 0; z-index: 30;
-  background: rgba(6,8,13,.72);
+  background: var(--nav-bg);
   backdrop-filter: var(--glass-regular); -webkit-backdrop-filter: var(--glass-regular);
   border-bottom: 1px solid var(--border-hair);
 }
@@ -949,10 +1084,11 @@ nav {
 .ticker-item .t-rating.Aplus { color: var(--amber); }
 .ticker-item .t-rating.A { color: var(--green); }
 .ticker-item .t-rating.Bplus { color: #9fb3d4; }
+:root[data-theme="light"] .ticker-item .t-rating.Bplus { color: #3f5c85; }
 .ticker-item .t-rating.B { color: var(--b); }
 
 .nav-shell { display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; }
-.brand { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 9px; letter-spacing: -.01em; }
+.brand { font-family: 'Inter', -apple-system, sans-serif; font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 9px; letter-spacing: -.01em; }
 .brand .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
 .brand-mark {
   display: inline-flex; align-items: center; justify-content: center;
@@ -965,20 +1101,38 @@ nav {
   color: var(--text-3); border: 1px solid var(--border); border-radius: 999px;
   padding: 2px 8px; margin-left: 2px; letter-spacing: .04em;
 }
-.nav-links { display: flex; gap: 26px; align-items: center; }
-.nav-links a:not(.cta) { font-size: 13.5px; color: var(--text-2); position: relative; padding: 2px 0; transition: color .15s; }
-.nav-links a:not(.cta):hover { color: var(--text); }
-.nav-links a:not(.cta)::after {
+.nav-links {
+  display: flex; gap: 22px; align-items: center; flex: 1 1 auto; min-width: 0;
+  overflow-x: auto; padding: 3px 0; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+}
+.nav-links::-webkit-scrollbar { display: none; }
+.nav-links a { font-size: 13.5px; color: var(--text-2); position: relative; padding: 2px 0; white-space: nowrap; transition: color .15s; flex-shrink: 0; }
+.nav-links a:hover { color: var(--text); }
+.nav-links a::after {
   content: ""; position: absolute; left: 0; right: 100%; bottom: -3px; height: 1px;
   background: var(--accent); transition: right .22s var(--ease-out);
 }
-.nav-links a:not(.cta):hover::after { right: 0; }
+.nav-links a:hover::after { right: 0; }
 
-@media (max-width: 940px) {
-  .nav-links { gap: 16px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-  .nav-links::-webkit-scrollbar { display: none; }
-  .nav-links a:not(.cta) { white-space: nowrap; }
+.nav-pinned { display: flex; align-items: center; gap: 14px; flex-shrink: 0; margin-left: 20px; }
+.nav-waitlist { font-size: 13px; color: var(--text-3); white-space: nowrap; transition: color .15s; }
+.nav-waitlist:hover { color: var(--text-2); }
+
+@media (max-width: 640px) { .nav-waitlist { display: none; } }
+
+.theme-toggle {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2);
+  cursor: pointer; transition: border-color .18s, color .18s, transform .18s var(--ease);
 }
+.theme-toggle:hover { color: var(--text); border-color: var(--border-strong); transform: translateY(-1px); }
+.theme-icon { width: 17px; height: 17px; }
+.theme-icon-moon { display: none; }
+:root[data-theme="light"] .theme-icon-sun { display: none; }
+:root[data-theme="light"] .theme-icon-moon { display: block; }
 
 /* signal toast */
 .signal-toast-region {
@@ -998,7 +1152,7 @@ nav {
 .signal-toast-accent { width: 4px; flex-shrink: 0; background: linear-gradient(180deg, var(--accent), var(--green)); }
 .signal-toast-body { padding: 14px 16px; flex: 1; min-width: 0; }
 .signal-toast-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--accent); font-weight: 700; }
-.signal-toast-body h3 { font-family: 'Space Grotesk', sans-serif; font-size: 15px; margin: 6px 0 4px; }
+.signal-toast-body h3 { font-family: 'Inter', -apple-system, sans-serif; font-size: 15px; margin: 6px 0 4px; }
 .signal-toast-body p { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
 .signal-toast-actions { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
 .signal-toast-link { color: var(--accent); font-size: 12.5px; font-weight: 700; }
@@ -1060,7 +1214,7 @@ nav {
 }
 .monitor-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--border-hair); margin-bottom: 8px; }
 .monitor-kicker { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-3); }
-.monitor-head strong { font-family: 'Space Grotesk', sans-serif; font-size: 16px; }
+.monitor-head strong { font-family: 'Inter', -apple-system, sans-serif; font-size: 16px; }
 .monitor-live {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
   color: var(--green); background: var(--green-dim); border: 1px solid rgba(0,236,159,.28);
@@ -1082,6 +1236,7 @@ nav {
 .monitor-rating.Aplus, .trade-badge.Aplus { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,200,90,.28); }
 .monitor-rating.A, .trade-badge.A { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,236,159,.28); }
 .monitor-rating.Bplus, .trade-badge.Bplus { background: var(--blue-dim); color: #9fb3d4; border: 1px solid rgba(75,163,255,.24); }
+:root[data-theme="light"] .monitor-rating.Bplus, :root[data-theme="light"] .trade-badge.Bplus { color: #3f5c85; }
 .monitor-rating.B, .trade-badge.B { background: rgba(138,167,216,.1); color: var(--b); border: 1px solid rgba(138,167,216,.24); }
 .monitor-empty { color: var(--text-3); font-size: 13px; padding: 20px 4px; text-align: center; }
 .monitor-foot { display: flex; flex-direction: column; gap: 3px; padding-top: 12px; margin-top: 4px; border-top: 1px solid var(--border-hair); }
@@ -1114,7 +1269,7 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 }
 .performance-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
 .performance-heading .eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; }
-.performance-heading h2 { font-size: 25px; margin-top: 8px; font-family: 'Space Grotesk', sans-serif; }
+.performance-heading h2 { font-size: 25px; margin-top: 8px; font-family: 'Inter', -apple-system, sans-serif; }
 .performance-heading p { color: var(--text-2); font-size: 14px; margin-top: 8px; max-width: 480px; }
 .performance-badges { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
 .performance-badge {
@@ -1138,7 +1293,7 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 .performance-chart-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
 .performance-window-label { display: flex; flex-direction: column; gap: 2px; }
 .performance-window-label span { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
-.performance-window-label strong { font-family: 'Space Grotesk', sans-serif; font-size: 15px; }
+.performance-window-label strong { font-family: 'Inter', -apple-system, sans-serif; font-size: 15px; }
 .performance-ranges { display: inline-flex; gap: 3px; background: var(--surface-solid); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
 .performance-range {
   font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--text-2);
@@ -1185,7 +1340,7 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 /* ytd trade ledger table (inside dashboard) */
 .ytd-ledger { margin-top: 30px; padding-top: 26px; border-top: 1px solid var(--border-hair); }
 .ytd-ledger-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
-.ytd-ledger-head h3 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; }
+.ytd-ledger-head h3 { font-family: 'Inter', -apple-system, sans-serif; font-size: 18px; }
 .ytd-ledger-head p { font-size: 13px; color: var(--text-3); margin-top: 6px; max-width: 420px; }
 .ytd-ledger-updated { text-align: right; font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; }
 .ytd-ledger-updated strong { display: block; font-family: 'JetBrains Mono', monospace; color: var(--text-2); font-size: 12.5px; text-transform: none; letter-spacing: 0; margin-top: 2px; }
@@ -1199,6 +1354,7 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 .ytd-ledger-table tbody tr:last-child td { border-bottom: none; }
 .ytd-ledger-table tbody tr { transition: background .15s; }
 .ytd-ledger-table tbody tr:hover { background: rgba(255,255,255,.025); }
+:root[data-theme="light"] .ytd-ledger-table tbody tr:hover { background: rgba(15,23,42,.03); }
 .trade-date { color: var(--text-3); }
 .trade-symbol { color: var(--text); font-weight: 700; }
 .trade-rating { margin-left: 7px; font-size: 10.5px; font-weight: 700; color: var(--accent); background: var(--accent-dim); border-radius: 5px; padding: 1px 5px; }
@@ -1229,6 +1385,37 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 .trust-stat .l { color: var(--text-3); font-size: 12px; text-transform: uppercase; letter-spacing: .07em; margin-top: 5px; }
 
 /* ------------------------------------------------------------
+   market activity banner — raw, unfiltered SEC feed (distinct from
+   the AI-scored signal ticker in nav: amber accent, not accent/green)
+   ------------------------------------------------------------ */
+.market-activity-banner { padding: 40px 0 44px; }
+.market-activity-head { max-width: 640px; margin: 0 auto 22px; text-align: center; }
+.market-activity-head .eyebrow { color: var(--amber); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .09em; }
+.market-activity-head h2 { font-size: 24px; margin-top: 10px; }
+.market-activity-head p { color: var(--text-2); font-size: 13.5px; margin-top: 10px; line-height: 1.6; }
+.market-activity-scroll {
+  overflow: hidden; white-space: nowrap; position: relative;
+  border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-solid);
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+}
+.market-activity-track { display: inline-flex; gap: 0; animation: ticker-scroll 60s linear infinite; }
+.market-activity-scroll:hover .market-activity-track { animation-play-state: paused; }
+.market-activity-item {
+  display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0;
+  padding: 14px 20px; border-right: 1px solid var(--border-hair);
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--text-2);
+}
+.ma-ticker { color: var(--text); font-weight: 700; }
+.ma-type { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 8px; border-radius: 999px; }
+.ma-type.buy { color: var(--green); background: var(--green-dim); }
+.ma-type.sell { color: var(--red); background: var(--red-dim); }
+.ma-insider { color: var(--text-3); max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.ma-value { color: var(--amber); }
+.ma-date { color: var(--text-3); }
+@media (max-width: 640px) { .ma-insider { max-width: 120px; } }
+
+/* ------------------------------------------------------------
    filings table
    ------------------------------------------------------------ */
 .filings-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-solid); -webkit-overflow-scrolling: touch; }
@@ -1241,6 +1428,7 @@ table.filings tbody td { padding: 12px 18px; border-bottom: 1px solid var(--bord
 table.filings tbody tr:last-child td { border-bottom: none; }
 table.filings tbody tr { transition: background .15s; }
 table.filings tbody tr:hover { background: rgba(255,255,255,.025); }
+:root[data-theme="light"] table.filings tbody tr:hover { background: rgba(15,23,42,.03); }
 table.filings .tk { font-weight: 700; color: var(--text); }
 table.filings .role { color: var(--text-3); font-size: 12.5px; margin-top: 2px; }
 table.filings .amt { text-align: right; }
@@ -1258,12 +1446,13 @@ table.filings .amt { text-align: right; }
 }
 .market-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border-hair); flex-wrap: wrap; }
 .market-panel-head span { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
-.market-panel-head strong { font-family: 'Space Grotesk', sans-serif; font-size: 15px; }
+.market-panel-head strong { font-family: 'Inter', -apple-system, sans-serif; font-size: 15px; }
 .market-delay-note { font-size: 11px; color: var(--text-3); max-width: 220px; text-align: right; }
-.tradingview-widget-container { height: 460px; }
+.tradingview-widget-container { height: 640px; }
 .tradingview-widget-container__widget { height: calc(100% - 22px); }
 .tradingview-widget-copyright { font-size: 11px; color: var(--text-3); padding: 4px 20px; }
 .tradingview-widget-copyright a { color: var(--text-3); }
+@media (max-width: 900px) { .tradingview-widget-container { height: 480px; } }
 
 .market-snapshot-list { display: flex; flex-direction: column; gap: 14px; }
 @media (max-width: 900px) { .market-snapshot-list { display: grid; grid-template-columns: 1fr 1fr; } }
@@ -1292,6 +1481,7 @@ table.filings .amt { text-align: right; }
 .market-range-track { position: relative; height: 4px; border-radius: 999px; background: var(--border); }
 .market-range-fill { position: absolute; inset: 0; width: var(--range-position, 0%); border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--green)); }
 .market-range-pin { position: absolute; top: 50%; left: var(--range-position, 0%); width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px var(--bg), 0 0 8px var(--accent); transform: translate(-50%, -50%); }
+:root[data-theme="light"] .market-range-pin { background: var(--text); }
 .market-range-labels { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-3); margin-top: 6px; font-family: 'JetBrains Mono', monospace; }
 .market-source-note { font-size: 10.5px; color: var(--text-3); margin-top: 12px; }
 
@@ -1342,7 +1532,7 @@ table.filings .amt { text-align: right; }
 }
 .new-trade-alert-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .new-trade-kicker { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); }
-.new-trade-alert-head h3 { font-family: 'Space Grotesk', sans-serif; font-size: 21px; margin-top: 8px; }
+.new-trade-alert-head h3 { font-family: 'Inter', -apple-system, sans-serif; font-size: 21px; margin-top: 8px; }
 .new-trade-alert-head p { font-size: 13px; color: var(--text-3); margin-top: 6px; }
 .new-trade-alert-badges { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .conviction-pill {
@@ -1406,7 +1596,7 @@ table.filings .amt { text-align: right; }
 @media (max-width: 720px) { .compare-grid { grid-template-columns: 1fr; } }
 .compare-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 28px; backdrop-filter: var(--glass-thin); -webkit-backdrop-filter: var(--glass-thin); }
 .compare-card.highlight { border-color: var(--border-strong); background: var(--surface-2); background-image: linear-gradient(180deg, rgba(0,224,255,.06), transparent 60%); box-shadow: var(--glow-accent); }
-.compare-card h3 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; margin-bottom: 16px; }
+.compare-card h3 { font-family: 'Inter', -apple-system, sans-serif; font-size: 18px; margin-bottom: 16px; }
 .compare-card ul { list-style: none; padding: 0; margin: 0; }
 .compare-card li { padding: 9px 0; color: var(--text-2); font-size: 14px; border-top: 1px solid var(--border-hair); }
 .compare-card li:first-child { border-top: none; }
@@ -1423,7 +1613,7 @@ table.filings .amt { text-align: right; }
   position: absolute; top: -12px; right: 20px; background: linear-gradient(135deg, var(--accent), var(--green)); color: #04151a;
   font-size: 12px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
 }
-.price-card h3 { font-family: 'Space Grotesk', sans-serif; font-size: 18px; }
+.price-card h3 { font-family: 'Inter', -apple-system, sans-serif; font-size: 18px; }
 .price-card .desc { color: var(--text-3); font-size: 13px; margin-top: 4px; }
 .price-card .price { font-family: 'JetBrains Mono', monospace; font-size: 32px; font-weight: 700; margin-top: 18px; }
 .price-card .price .per { font-size: 14px; color: var(--text-3); font-weight: 400; }
@@ -1504,6 +1694,8 @@ def inject_shared_data():
     }
 
 
+THEME_INIT = """<script>(function(){try{var t=localStorage.getItem('aiinsider_theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>"""
+
 NAV = """
 <div class="bg-mesh"><span class="b1"></span><span class="b2"></span><span class="b3"></span></div>
 <nav aria-label="Primary navigation">
@@ -1536,12 +1728,22 @@ NAV = """
     <div class="nav-links">
       <a href="/#performance">Dashboard</a>
       <a href="/#signals">Signals</a>
-      <a href="/#market-data">Market</a>
+      <a href="/#market-data">Markets</a>
+      <a href="/insider-trades">Insider Trades</a>
+      <a href="/market-news">Market News</a>
+      <a href="/congress">Congress</a>
       <a href="/track-record">Track Record</a>
       <a href="/leaderboard">Leaderboard</a>
-      <a href="/how-it-works">How It Works</a>
+      <a href="/how-it-works">Methodology</a>
       <a href="/#pricing">Pricing</a>
-      <a class="cta ghost" href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
+    </div>
+    <div class="nav-pinned">
+    <a class="nav-waitlist" href="mailto:hello@aiinsider.store?subject=Waitlist">Join waitlist</a>
+    <a class="cta" href="/#signals">Start Free</a>
+    <button type="button" class="theme-toggle" data-theme-toggle aria-label="Switch between light and dark theme" title="Switch theme">
+      <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4.3" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.6v2.2M12 19.2v2.2M4.3 4.3l1.6 1.6M18.1 18.1l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.3 19.7l1.6-1.6M18.1 5.9l1.6-1.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 14.3A8.4 8.4 0 1 1 9.7 4a6.9 6.9 0 0 0 10.3 10.3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+    </button>
     </div>
   </div>
 </nav>
@@ -1570,6 +1772,27 @@ FOOTER = """
   <p style="color:var(--muted);font-size:13px;margin-top:16px;">&copy; {{ year }} AI INSIDER</p>
 </div></footer>
 <script>
+(() => {
+  const STORAGE_KEY = 'aiinsider_theme';
+  const toggle = document.querySelector('[data-theme-toggle]');
+  const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+  const themeColors = { dark: '#03070c', light: '#f4f6fa' };
+  const applyThemeColorMeta = theme => {
+    if (metaThemeColor) metaThemeColor.setAttribute('content', themeColors[theme] || themeColors.dark);
+  };
+  applyThemeColorMeta(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+  if (toggle) {
+    toggle.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      const next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem(STORAGE_KEY, next); } catch (_) {}
+      applyThemeColorMeta(next);
+      window.dispatchEvent(new CustomEvent('aiinsider:themechange', { detail: { theme: next } }));
+    });
+  }
+})();
+
 if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
   // stagger cards within the same grid so they reveal one after another
   document.querySelectorAll('.trade-grid').forEach(grid => {
@@ -1875,6 +2098,7 @@ HOME_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
 <title>AI INSIDER &mdash; Scored insider buying from SEC filings</title>
 <meta name="description" content="Every open-market insider purchase, scored against two decades of backtested history. Free, public, updated daily from SEC EDGAR.">
 <style>""" + BASE_CSS + """</style>
@@ -2018,10 +2242,10 @@ HOME_TEMPLATE = """
   <div class="hero-layout">
     <div class="hero-copy">
       <span class="eyebrow"><span class="eyebrow-rule"></span>Independent research on public SEC filings</span>
-      <h1>Insider buying, filtered for what matters.</h1>
-      <p>AI Insider screens open-market purchases by executives and directors, then publishes the setups that clear a rules-based process tested across more than two decades of Form 4 history.</p>
+      <h1>Thousands of insider filings. The signals that <span class="grad">actually mattered</span>.</h1>
+      <p>AI Insider screens every open-market purchase by executives and directors against a rules-based model backtested across 20+ years of Form 4 outcomes &mdash; then explains, in plain English, why each signal cleared the bar.</p>
       <div class="ctas">
-        <a class="cta" href="#signals">View latest signals</a>
+        <a class="cta" href="#signals">Start free &mdash; view signals</a>
         <a class="cta ghost" href="/how-it-works">Read the methodology &rarr;</a>
       </div>
       <div class="hero-note" aria-label="Research principles">
@@ -2051,7 +2275,14 @@ HOME_TEMPLATE = """
   </div>
 </div></div>
 
-{% if trust_stats %}
+{% if performance and performance.trade_count %}
+<div class="trust-bar"><div class="wrap" style="display:flex;justify-content:center;gap:48px;flex-wrap:wrap;">
+  <div class="trust-stat"><div class="n">20+</div><div class="l">Years SEC Data</div></div>
+  <div class="trust-stat"><div class="n">{{ performance.trade_count }}</div><div class="l">Backtested Trades</div></div>
+  {% if performance.win_rate is not none %}<div class="trust-stat"><div class="n">{{ performance.win_rate }}%</div><div class="l">Historical Win Rate</div></div>{% endif %}
+  <div class="trust-stat"><div class="n">AI</div><div class="l">Ranked Insider Signals</div></div>
+</div></div>
+{% elif trust_stats %}
 <div class="trust-bar"><div class="wrap" style="display:flex;justify-content:center;gap:48px;flex-wrap:wrap;">
   <div class="trust-stat"><div class="n">{{ trust_stats.total_filings }}</div><div class="l">Filings Logged</div></div>
   <div class="trust-stat"><div class="n">{{ trust_stats.unique_tickers }}</div><div class="l">Tickers Tracked</div></div>
@@ -2060,11 +2291,32 @@ HOME_TEMPLATE = """
 </div></div>
 {% endif %}
 
+{% if market_trades %}
+<section id="market-activity" class="market-activity-banner"><div class="wrap">
+  <div class="market-activity-head">
+    <span class="eyebrow">Unfiltered &middot; market-wide &middot; not our signals</span>
+    <h2>Every real insider trade, not just the ones we flag</h2>
+    <p>Every open-market Form 4 buy or sell filed across the entire market, pulled straight from SEC EDGAR &mdash; raw and unscored. This is the noise AI Insider's model screens down to the signals above. <a href="/insider-trades" style="color:var(--amber);">View the full feed &rarr;</a></p>
+  </div>
+  <div class="market-activity-scroll"><div class="market-activity-track">
+    {% for t in market_trades + market_trades %}
+    <span class="market-activity-item">
+      <span class="ma-ticker">${{ t.ticker }}</span>
+      <span class="ma-type {{ 'sell' if t.transaction_type == 'Open-market sell' else 'buy' }}">{{ t.transaction_type }}</span>
+      <span class="ma-insider">{{ t.insider_name or 'Insider' }}{% if t.insider_title %} &middot; {{ t.insider_title }}{% endif %}</span>
+      {% if t.value %}<span class="ma-value">${{ '{:,.0f}'.format(t.value) }}</span>{% endif %}
+      <span class="ma-date">{{ t.transaction_date }}</span>
+    </span>
+    {% endfor %}
+  </div></div>
+</div></section>
+{% endif %}
+
 <section id="filings"><div class="wrap">
   <div class="section-head">
     <span class="eyebrow">01 / Signal ledger</span>
     <h2>Latest insider filings</h2>
-    <p>A dense, timestamped view of every logged signal. Public SEC Form 4 data, most recent first.</p>
+    <p>A dense, timestamped view of every logged signal. Public SEC Form 4 data, most recent first.{% if trust_stats and performance %} {{ trust_stats.total_filings }} filings logged across {{ trust_stats.unique_tickers }} tickers and {{ trust_stats.unique_insiders }} insiders over {{ trust_stats.days_tracked }} days tracked.{% endif %}</p>
   </div>
   {% if filings %}
   <div class="filings-table-wrap">
@@ -2441,6 +2693,26 @@ HOME_TEMPLATE = """
     };
   }).filter(Boolean);
 
+  const CHART_COLORS = {
+    dark: {
+      axisLabel: '#66727b', xLabel: '#647078',
+      gridMajor: 'rgba(255,255,255,.13)', gridMinor: 'rgba(255,255,255,.055)',
+      backtestFillFrom: 'rgba(0, 236, 159, .16)', backtestFillTo: 'rgba(0, 236, 159, 0)',
+      ownerFillFrom: 'rgba(215, 255, 125, .16)', ownerFillTo: 'rgba(215, 255, 125, 0)',
+      benchmark: '#4ba3ff', strategy: '#00ec9f', owner: '#d7ff7d', benchmarkLabel: '#75baff',
+      crosshair: 'rgba(255,255,255,.18)', hoverDotFill: '#071014',
+    },
+    light: {
+      axisLabel: '#5b6472', xLabel: '#5b6472',
+      gridMajor: 'rgba(15,23,42,.14)', gridMinor: 'rgba(15,23,42,.06)',
+      backtestFillFrom: 'rgba(6, 122, 86, .14)', backtestFillTo: 'rgba(6, 122, 86, 0)',
+      ownerFillFrom: 'rgba(122, 122, 16, .14)', ownerFillTo: 'rgba(122, 122, 16, 0)',
+      benchmark: '#1c64d1', strategy: '#067a56', owner: '#7a7a10', benchmarkLabel: '#1c64d1',
+      crosshair: 'rgba(15,23,42,.22)', hoverDotFill: '#ffffff',
+    },
+  };
+  const chartTheme = () => (document.documentElement.getAttribute('data-theme') === 'light' ? CHART_COLORS.light : CHART_COLORS.dark);
+
   const ctx = canvas.getContext('2d');
   const tooltip = document.querySelector('[data-performance-tooltip]');
   const tooltipDate = document.querySelector('[data-tooltip-date]');
@@ -2551,6 +2823,7 @@ HOME_TEMPLATE = """
 
   const drawChart = () => {
     if (!visibleRows.length) return;
+    const theme = chartTheme();
     const width = Math.max(320, canvas.clientWidth);
     const height = Math.max(230, canvas.clientHeight);
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -2582,7 +2855,7 @@ HOME_TEMPLATE = """
 
     ctx.save();
     ctx.font = "11.5px 'JetBrains Mono', monospace";
-    ctx.fillStyle = '#66727b';
+    ctx.fillStyle = theme.axisLabel;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let line = 0; line <= 4; line += 1) {
@@ -2592,7 +2865,7 @@ HOME_TEMPLATE = """
       ctx.beginPath();
       ctx.moveTo(padding.left, y);
       ctx.lineTo(width - padding.right, y);
-      ctx.strokeStyle = Math.abs(value) < spread / 8 ? 'rgba(255,255,255,.13)' : 'rgba(255,255,255,.055)';
+      ctx.strokeStyle = Math.abs(value) < spread / 8 ? theme.gridMajor : theme.gridMinor;
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.fillText(axisPercent(value), padding.left - 8, y);
@@ -2602,8 +2875,8 @@ HOME_TEMPLATE = """
     if (!ownerMode) {
       const zeroY = yValue(0);
       const fill = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
-      fill.addColorStop(0, 'rgba(0, 236, 159, .16)');
-      fill.addColorStop(1, 'rgba(0, 236, 159, 0)');
+      fill.addColorStop(0, theme.backtestFillFrom);
+      fill.addColorStop(1, theme.backtestFillTo);
       ctx.beginPath();
       visibleRows.forEach((row, index) => {
         const x = xFor(index);
@@ -2616,13 +2889,13 @@ HOME_TEMPLATE = """
       ctx.fillStyle = fill;
       ctx.fill();
 
-      drawSeries(visibleRows, xFor, benchmarkY, '#4ba3ff', 1.7, [5, 4]);
-      drawSeries(visibleRows, xFor, strategyY, '#00ec9f', 2.2);
+      drawSeries(visibleRows, xFor, benchmarkY, theme.benchmark, 1.7, [5, 4]);
+      drawSeries(visibleRows, xFor, strategyY, theme.strategy, 2.2);
     } else {
       const zeroY = yValue(0);
       const ownerFill = ctx.createLinearGradient(0, padding.top, 0, padding.top + plotHeight);
-      ownerFill.addColorStop(0, 'rgba(215, 255, 125, .16)');
-      ownerFill.addColorStop(1, 'rgba(215, 255, 125, 0)');
+      ownerFill.addColorStop(0, theme.ownerFillFrom);
+      ownerFill.addColorStop(1, theme.ownerFillTo);
       ctx.beginPath();
       visibleRows.forEach((row, index) => {
         const x = xFor(index);
@@ -2635,14 +2908,14 @@ HOME_TEMPLATE = """
       ctx.fillStyle = ownerFill;
       ctx.fill();
 
-      drawSeries(visibleRows, xFor, benchmarkY, '#4ba3ff', 2.1);
-      drawSeries(visibleRows, xFor, strategyY, '#d7ff7d', 2.5);
+      drawSeries(visibleRows, xFor, benchmarkY, theme.benchmark, 2.1);
+      drawSeries(visibleRows, xFor, strategyY, theme.owner, 2.5);
     }
 
     const labelIndexes = [0, Math.floor((visibleRows.length - 1) / 2), visibleRows.length - 1];
     ctx.save();
     ctx.font = "10.5px 'JetBrains Mono', monospace";
-    ctx.fillStyle = '#647078';
+    ctx.fillStyle = theme.xLabel;
     ctx.textBaseline = 'bottom';
     labelIndexes.forEach((index, position) => {
       ctx.textAlign = position === 0 ? 'left' : (position === 2 ? 'right' : 'center');
@@ -2655,9 +2928,9 @@ HOME_TEMPLATE = """
         if (!row.ownerEvent || index === 0) return;
         ctx.beginPath();
         ctx.arc(xFor(index), strategyY(row), 2.6, 0, Math.PI * 2);
-        ctx.fillStyle = '#071014';
+        ctx.fillStyle = theme.hoverDotFill;
         ctx.fill();
-        ctx.strokeStyle = '#d7ff7d';
+        ctx.strokeStyle = theme.owner;
         ctx.lineWidth = 1.4;
         ctx.stroke();
       });
@@ -2667,7 +2940,7 @@ HOME_TEMPLATE = """
       const latestY = strategyY(latestOwner);
       ctx.save();
       ctx.font = "600 12px 'JetBrains Mono', monospace";
-      ctx.fillStyle = '#d7ff7d';
+      ctx.fillStyle = theme.owner;
       ctx.textAlign = 'right';
       ctx.textBaseline = 'bottom';
       ctx.fillText(`Owner ${signedPercent(latestOwner.strategyReturn)}`, latestX - 8, Math.max(14, latestY - 8));
@@ -2678,7 +2951,7 @@ HOME_TEMPLATE = """
       const labelsAreClose = Math.abs(latestY - benchmarkLatestY) < 24;
       ctx.save();
       ctx.font = "600 12px 'JetBrains Mono', monospace";
-      ctx.fillStyle = '#75baff';
+      ctx.fillStyle = theme.benchmarkLabel;
       ctx.textAlign = 'right';
       ctx.textBaseline = labelsAreClose ? 'top' : 'bottom';
       ctx.fillText(
@@ -2695,13 +2968,13 @@ HOME_TEMPLATE = """
       ctx.beginPath();
       ctx.moveTo(x, padding.top);
       ctx.lineTo(x, padding.top + plotHeight);
-      ctx.strokeStyle = 'rgba(255,255,255,.18)';
+      ctx.strokeStyle = theme.crosshair;
       ctx.lineWidth = 1;
       ctx.stroke();
-      [[strategyY(row), ownerMode ? '#d7ff7d' : '#00ec9f'], [benchmarkY(row), '#4ba3ff']].forEach(([y, color]) => {
+      [[strategyY(row), ownerMode ? theme.owner : theme.strategy], [benchmarkY(row), theme.benchmark]].forEach(([y, color]) => {
         ctx.beginPath();
         ctx.arc(x, y, 4, 0, Math.PI * 2);
-        ctx.fillStyle = '#071014';
+        ctx.fillStyle = theme.hoverDotFill;
         ctx.fill();
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
@@ -2797,6 +3070,7 @@ HOME_TEMPLATE = """
   } else {
     window.addEventListener('resize', drawChart, { passive: true });
   }
+  window.addEventListener('aiinsider:themechange', () => drawChart());
   renderRange(activeRange);
 })();
 </script>
@@ -2831,6 +3105,7 @@ def home():
         performance=performance,
         ytd_snapshot=ytd_snapshot,
         ytd_ledger=ytd_ledger,
+        market_trades=load_market_trades(),
     )
 
 
@@ -2840,6 +3115,7 @@ TRACK_RECORD_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
 <title>Track Record &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -2951,6 +3227,7 @@ LEADERBOARD_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
 <title>Leaderboard &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -3019,6 +3296,7 @@ HOW_IT_WORKS_TEMPLATE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
 <title>How It Works &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
@@ -3042,12 +3320,183 @@ def how_it_works():
     return render_template_string(HOW_IT_WORKS_TEMPLATE)
 
 
+# ── insider trades (full market-wide feed) ─────────────────────────
+
+INSIDER_TRADES_TEMPLATE = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
+<title>Insider Trades &mdash; every real open-market Form 4 &mdash; AI INSIDER</title>
+<meta name="description" content="Every open-market insider buy or sell filed market-wide with the SEC, unfiltered and unscored -- separate from AI Insider's own scored signal feed.">
+<style>""" + BASE_CSS + """</style>
+</head><body>
+""" + NAV + """
+<div class="hero"><div class="wrap">
+  <span class="eyebrow">Unfiltered &middot; market-wide &middot; not our signals</span>
+  <h1>Every real insider trade, <span class="grad">not just the ones we flag</span>.</h1>
+  <p>Every open-market Form 4 buy or sell filed anywhere in the market, pulled straight from SEC EDGAR. This is the raw stream AI Insider's model screens down to the <a href="/#signals" style="color:var(--accent);">scored signals</a> above.</p>
+</div></div>
+
+<section><div class="wrap">
+  <div class="section-head" style="text-align:left;margin:0 0 28px;">
+    <span class="eyebrow">Live feed</span>
+    <h2 style="font-size:26px;">{{ trades|length }} recent trade{{ '' if trades|length == 1 else 's' }}</h2>
+    <p style="margin-top:8px;">Synced hourly from SEC EDGAR's current Form 4 filings. Only genuine open-market buys and sells &mdash; grants, option exercises, and gifts are excluded.</p>
+  </div>
+  {% if trades %}
+  <div class="filings-table-wrap">
+    <table class="filings">
+      <thead><tr>
+        <th>Date</th><th>Ticker</th><th>Company</th><th>Insider</th><th>Type</th><th class="amt">Shares</th><th class="amt">Price</th><th class="amt">Value</th>
+      </tr></thead>
+      <tbody>
+        {% for t in trades %}
+        <tr>
+          <td>{{ t.transaction_date }}</td>
+          <td class="tk">${{ t.ticker }}</td>
+          <td>{{ t.company or '—' }}</td>
+          <td>{{ t.insider_name or '—' }}{% if t.insider_title %}<div class="role">{{ t.insider_title }}</div>{% endif %}</td>
+          <td><span class="ma-type {{ 'sell' if t.transaction_type == 'Open-market sell' else 'buy' }}">{{ t.transaction_type }}</span></td>
+          <td class="amt">{{ '{:,.0f}'.format(t.shares) if t.shares else '—' }}</td>
+          <td class="amt">{{ '${:,.2f}'.format(t.price) if t.price else '—' }}</td>
+          <td class="amt">{{ '${:,.0f}'.format(t.value) if t.value else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No market-wide trades synced yet &mdash; this fills in automatically once the hourly SEC EDGAR sync has run. Shown honestly empty rather than faked.</div>
+  {% endif %}
+  <p class="signal-sizing-note" style="margin-top:16px;">This feed is informational only, not a recommendation. It reflects public SEC filings and may be incomplete or delayed.</p>
+</div></section>
+
+""" + FOOTER.replace("{{ year }}", str(datetime.now().year)) + """
+</body></html>
+"""
+
+
+@app.route("/insider-trades")
+def insider_trades():
+    return render_template_string(INSIDER_TRADES_TEMPLATE, trades=load_market_trades(limit=200))
+
+
+# ── congress trades ─────────────────────────────────────────────────
+
+CONGRESS_TEMPLATE = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
+<title>Congress Trading &mdash; House &amp; Senate stock disclosures &mdash; AI INSIDER</title>
+<meta name="description" content="Every stock trade disclosed by members of the House and Senate under the STOCK Act, synced from the House Stock Watcher and Senate Stock Watcher public datasets.">
+<style>""" + BASE_CSS + """</style>
+</head><body>
+""" + NAV + """
+<div class="hero"><div class="wrap">
+  <span class="eyebrow">STOCK Act disclosures &middot; House &amp; Senate</span>
+  <h1>What <span class="grad">Congress</span> is trading.</h1>
+  <p>Every periodic transaction report members of the House and Senate are required to file when they buy or sell stock, synced from the House Stock Watcher and Senate Stock Watcher public datasets. Disclosures are legally allowed to lag the actual trade by up to 45 days &mdash; these are reported dates, not real-time.</p>
+</div></div>
+
+<section><div class="wrap">
+  <div class="section-head" style="text-align:left;margin:0 0 28px;">
+    <span class="eyebrow">Live feed</span>
+    <h2 style="font-size:26px;">{{ trades|length }} recent disclosure{{ '' if trades|length == 1 else 's' }}</h2>
+    <p style="margin-top:8px;">Synced every 6 hours from the House Stock Watcher and Senate Stock Watcher datasets, which parse the official House Clerk and Senate eFD filings.</p>
+  </div>
+  {% if trades %}
+  <div class="filings-table-wrap">
+    <table class="filings">
+      <thead><tr>
+        <th>Disclosed</th><th>Traded</th><th>Chamber</th><th>Member</th><th>Ticker</th><th>Type</th><th class="amt">Amount</th>
+      </tr></thead>
+      <tbody>
+        {% for t in trades %}
+        <tr>
+          <td>{{ t.disclosure_date or '—' }}</td>
+          <td>{{ t.transaction_date or '—' }}</td>
+          <td>{{ t.chamber }}</td>
+          <td>{{ t.member or '—' }}{% if t.state_or_district %}<div class="role">{{ t.state_or_district }}</div>{% endif %}</td>
+          <td class="tk">${{ t.ticker }}</td>
+          <td><span class="ma-type {{ 'sell' if 'Sale' in (t.transaction_type or '') else 'buy' }}">{{ t.transaction_type }}</span></td>
+          <td class="amt">{{ t.amount_range or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No congressional disclosures synced yet &mdash; this fills in automatically once the sync has run. Shown honestly empty rather than faked.</div>
+  {% endif %}
+  <p class="signal-sizing-note" style="margin-top:16px;">Congressional trading data is sourced from third-party open datasets that parse official disclosures; it is informational only, may lag or contain gaps, and is not a recommendation.</p>
+</div></section>
+
+""" + FOOTER.replace("{{ year }}", str(datetime.now().year)) + """
+</body></html>
+"""
+
+
+@app.route("/congress")
+def congress_trades():
+    return render_template_string(CONGRESS_TEMPLATE, trades=load_congress_trades(limit=200))
+
+
+# ── market news ──────────────────────────────────────────────────
+
+MARKET_NEWS_TEMPLATE = """
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
+<title>Market News &mdash; AI INSIDER</title>
+<meta name="description" content="Financial market headlines aggregated from public RSS feeds.">
+<style>""" + BASE_CSS + """</style>
+</head><body>
+""" + NAV + """
+<div class="hero"><div class="wrap">
+  <span class="eyebrow">Aggregated headlines</span>
+  <h1>Market <span class="grad">news</span>, in one place.</h1>
+  <p>Financial headlines pulled from public market-news feeds, refreshed hourly. General market context, not part of AI Insider's own research.</p>
+</div></div>
+
+<section><div class="wrap">
+  <div class="section-head" style="text-align:left;margin:0 0 28px;">
+    <span class="eyebrow">Live feed</span>
+    <h2 style="font-size:26px;">{{ news|length }} recent headline{{ '' if news|length == 1 else 's' }}</h2>
+  </div>
+  {% if news %}
+  <div style="max-width:820px;">
+    {% for n in news %}
+    <div class="faq-item">
+      <h4><a href="{{ n.link }}" target="_blank" rel="noopener nofollow" style="color:var(--text);">{{ n.title }}</a></h4>
+      <p>{{ n.source }}{% if n.published %} &middot; {{ n.published }}{% endif %}</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">No market news synced yet &mdash; this fills in automatically once the sync has run. Shown honestly empty rather than faked.</div>
+  {% endif %}
+</div></section>
+
+""" + FOOTER.replace("{{ year }}", str(datetime.now().year)) + """
+</body></html>
+"""
+
+
+@app.route("/market-news")
+def market_news():
+    return render_template_string(MARKET_NEWS_TEMPLATE, news=load_market_news(limit=60))
+
+
 # ── simple pages ─────────────────────────────────────────────────
 
 SIMPLE_PAGE = """
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#03070c">
+""" + THEME_INIT + """
 <title>{{ title }} &mdash; AI INSIDER</title>
 <style>""" + BASE_CSS + """</style>
 </head><body>
