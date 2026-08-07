@@ -88,6 +88,37 @@ def load_filings_table(limit=30):
     return recent[cols].to_dict("records")
 
 
+def load_weekly_signals(days=7, limit=100):
+    """Signals actually filed within the last N days -- a real date-range
+    filter, not just a row-count cap on load_filings_table(). Honest empty
+    state if nothing qualifies this week; never backfilled with older rows
+    to avoid looking busier than it is.
+    """
+    path = os.path.join(BASE_DIR, "public_signal_history.csv")
+    if not os.path.exists(path):
+        return [], None
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return [], None
+    if df.empty:
+        return [], None
+    dates = pd.to_datetime(df["signal_date"], errors="coerce")
+    cutoff = pd.Timestamp(datetime.now().date()) - pd.Timedelta(days=days - 1)
+    mask = dates >= cutoff
+    if not mask.any():
+        return [], cutoff.date().isoformat()
+    recent = df[mask].copy()
+    recent["_sort"] = dates[mask]
+    recent = recent.sort_values("_sort", ascending=False).head(limit)
+    cols = ["ticker", "rating", "signal_date", "entry_price", "insider_name",
+            "insider_title", "total_amount", "market_cap"]
+    for c in cols:
+        if c not in recent.columns:
+            recent[c] = None
+    return recent[cols].to_dict("records"), cutoff.date().isoformat()
+
+
 def load_trust_stats():
     """Real aggregate numbers from actual history — never fabricated.
     Returns None (honest empty state) if there's not enough history yet."""
@@ -1464,6 +1495,14 @@ section { padding: 76px 0; border-top: 1px solid var(--border-hair); position: r
 /* ------------------------------------------------------------
    filings table
    ------------------------------------------------------------ */
+.filings-tabs { display: inline-flex; gap: 3px; background: var(--surface-solid); border: 1px solid var(--border); border-radius: 999px; padding: 3px; margin-bottom: 20px; }
+.filings-tab {
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: var(--text-2);
+  background: transparent; border: none; border-radius: 999px; padding: 8px 18px; cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.filings-tab:hover { color: var(--text); }
+.filings-tab.active { background: linear-gradient(135deg, var(--accent), var(--green)); color: #04151a; }
 .filings-table-wrap { overflow: auto; max-height: 680px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface-solid); -webkit-overflow-scrolling: touch; }
 table.filings { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 14.5px; min-width: 740px; }
 table.filings thead th {
@@ -1894,6 +1933,24 @@ FOOTER = """
   panel.querySelectorAll('a').forEach(link => link.addEventListener('click', closeMenu));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
   window.addEventListener('resize', () => { if (window.innerWidth > 768) closeMenu(); });
+})();
+
+(() => {
+  const tabs = document.querySelectorAll('[data-filings-tab]');
+  if (!tabs.length) return;
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.getAttribute('data-filings-tab');
+      tabs.forEach(t => {
+        const active = t === tab;
+        t.classList.toggle('active', active);
+        t.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-filings-panel]').forEach(panel => {
+        panel.hidden = panel.getAttribute('data-filings-panel') !== target;
+      });
+    });
+  });
 })();
 
 if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -2415,36 +2472,57 @@ HOME_TEMPLATE = """
 </div></section>
 {% endif %}
 
+{% macro filings_rows(rows) %}
+  {% for f in rows %}
+  <tr>
+    <td class="tk">${{ f.ticker }}</td>
+    <td>{{ f.insider_name or '—' }}{% if f.insider_title %}<div class="role">{{ f.insider_title }}</div>{% endif %}</td>
+    <td>{{ f.signal_date }}</td>
+    <td><span class="trade-badge {{ f.rating|replace('+','plus') }}">{{ f.rating }}</span></td>
+    <td>${{ f.entry_price }}</td>
+    <td>{{ f.market_cap|mcap }}</td>
+    <td class="amt">{{ '${:,.0f}'.format(f.total_amount) if f.total_amount else '—' }}</td>
+  </tr>
+  {% endfor %}
+{% endmacro %}
 <section id="filings"><div class="wrap">
   <div class="section-head">
     <span class="eyebrow">01 / Signal ledger</span>
-    <h2>Latest insider filings</h2>
+    <h2>Insider filings</h2>
     <p>A dense, timestamped view of every logged signal. Public SEC Form 4 data, most recent first.{% if trust_stats and performance %} {{ trust_stats.total_filings }} filings logged across {{ trust_stats.unique_tickers }} tickers and {{ trust_stats.unique_insiders }} insiders over {{ trust_stats.days_tracked }} days tracked.{% endif %}</p>
   </div>
-  {% if filings %}
-  <div class="filings-table-wrap">
-    <table class="filings">
-      <thead><tr>
-        <th>Ticker</th><th>Insider</th><th>Filed</th><th>Rating</th><th>Price</th><th>Mkt Cap</th><th class="amt">Amount</th>
-      </tr></thead>
-      <tbody>
-        {% for f in filings %}
-        <tr>
-          <td class="tk">${{ f.ticker }}</td>
-          <td>{{ f.insider_name or '—' }}{% if f.insider_title %}<div class="role">{{ f.insider_title }}</div>{% endif %}</td>
-          <td>{{ f.signal_date }}</td>
-          <td><span class="trade-badge {{ f.rating|replace('+','plus') }}">{{ f.rating }}</span></td>
-          <td>${{ f.entry_price }}</td>
-          <td>{{ f.market_cap|mcap }}</td>
-          <td class="amt">{{ '${:,.0f}'.format(f.total_amount) if f.total_amount else '—' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="filings-tabs" role="tablist">
+    <button type="button" class="filings-tab active" data-filings-tab="week" role="tab" aria-selected="true">This Week</button>
+    <button type="button" class="filings-tab" data-filings-tab="all" role="tab" aria-selected="false">All Time</button>
   </div>
-  {% else %}
-  <div class="empty">No filings logged yet — this table fills in as daily scans run.</div>
-  {% endif %}
+  <div class="filings-panel" data-filings-panel="week">
+    {% if weekly_signals %}
+    <div class="filings-table-wrap">
+      <table class="filings">
+        <thead><tr>
+          <th>Ticker</th><th>Insider</th><th>Filed</th><th>Rating</th><th>Price</th><th>Mkt Cap</th><th class="amt">Amount</th>
+        </tr></thead>
+        <tbody>{{ filings_rows(weekly_signals) }}</tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">No new signals filed since {{ weekly_since }} &mdash; the model didn't find anything that cleared the bar this week. Shown honestly empty rather than backfilled with older rows &mdash; check the All Time tab for full history.</div>
+    {% endif %}
+  </div>
+  <div class="filings-panel" data-filings-panel="all" hidden>
+    {% if filings %}
+    <div class="filings-table-wrap">
+      <table class="filings">
+        <thead><tr>
+          <th>Ticker</th><th>Insider</th><th>Filed</th><th>Rating</th><th>Price</th><th>Mkt Cap</th><th class="amt">Amount</th>
+        </tr></thead>
+        <tbody>{{ filings_rows(filings) }}</tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">No filings logged yet — this table fills in as daily scans run.</div>
+    {% endif %}
+  </div>
 </div></section>
 
 <section id="market-data"><div class="wrap">
@@ -3214,11 +3292,14 @@ def home():
             },
             "owner_curve": owner_curve,
         }
+    weekly_signals, weekly_since = load_weekly_signals()
     return render_template_string(
         HOME_TEMPLATE,
         signals=load_public_signals(),
         examples=load_resolved_examples(),
         filings=load_filings_table(),
+        weekly_signals=weekly_signals,
+        weekly_since=weekly_since,
         trust_stats=load_trust_stats(),
         performance=performance,
         ytd_snapshot=ytd_snapshot,
