@@ -1,4 +1,5 @@
 filed_date,transaction_date,ticker,company,insider_name,insider_title,transaction_code,transaction_type,shares,price,value,acquired_disposed,accession_no
+2026-08-06,2026-08-06,OPI,OFFICE PROPERTIES INCOME TRUST,"REDWOOD CAPITAL MANAGEMENT, LLC",,S,Open-market sell,162254.0,19.71,3198026.34,D,000091957426004851
 2026-08-06,2026-08-06,JCTC,JEWETT CAMERON TRADING CO LTD,"AJB Investment Fund II, LP",,P,Open-market buy,15.0,2.798,41.97,A,000153658826000024
 2026-08-06,2026-08-06,JCTC,JEWETT CAMERON TRADING CO LTD,"AJB Investment Fund II, LP",,P,Open-market buy,413.0,2.805,1158.47,A,000153658826000024
 2026-08-06,2026-08-06,XYZ,"Block, Inc.",Eisen Anthony Mathew,Director,S,Open-market sell,6000.0,83.07,498420.0,D,000162828026054510
@@ -49,6 +50,10 @@ filed_date,transaction_date,ticker,company,insider_name,insider_title,transactio
 2026-08-06,2026-08-05,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,3631.0,39.3118,142741.15,D,000189510626000017
 2026-08-06,2026-08-05,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,16669.0,38.5818,643120.02,D,000189510626000017
 2026-08-06,2026-08-05,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,960.0,39.3654,37790.78,D,000189510626000017
+2026-08-06,2026-08-04,META,"Meta Platforms, Inc.",Andreessen Marc L,,S,Open-market sell,250.0,588.16,147040.0,D,000116007726000008
+2026-08-06,2026-08-04,META,"Meta Platforms, Inc.",Andreessen Marc L,,S,Open-market sell,87.0,589.24,51263.88,D,000116007726000008
+2026-08-06,2026-08-04,META,"Meta Platforms, Inc.",Andreessen Marc L,,S,Open-market sell,44.0,590.39,25977.16,D,000116007726000008
+2026-08-06,2026-08-04,META,"Meta Platforms, Inc.",Andreessen Marc L,,S,Open-market sell,45.0,591.69,26626.05,D,000116007726000008
 2026-08-06,2026-08-04,CRWV,"CoreWeave, Inc.",Intrator Michael N,CEO and President,S,Open-market sell,1950.0,86.4387,168555.46,D,000176962826000351
 2026-08-06,2026-08-04,CRWV,"CoreWeave, Inc.",Intrator Michael N,CEO and President,S,Open-market sell,390.0,87.9933,34317.39,D,000176962826000351
 2026-08-06,2026-08-04,CRWV,"CoreWeave, Inc.",Intrator Michael N,CEO and President,S,Open-market sell,10550.0,89.4518,943716.49,D,000176962826000351
