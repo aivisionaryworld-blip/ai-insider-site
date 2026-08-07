@@ -5,10 +5,10 @@
     {
       "date": "2026-08-06",
       "ticker": "BV",
-      "rating": "B",
+      "rating": "B+",
       "status": "OPEN SIGNAL",
       "return_pct": null,
-      "model_allocation_pct": 15.0,
+      "model_allocation_pct": 17.0,
       "resolved_date": null,
       "source": "AI_INSIDER_BOT"
     },
