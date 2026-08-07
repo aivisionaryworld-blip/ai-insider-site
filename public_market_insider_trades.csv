@@ -1,4 +1,5 @@
 filed_date,transaction_date,ticker,company,insider_name,insider_title,transaction_code,transaction_type,shares,price,value,acquired_disposed,accession_no
+2026-08-07,2026-08-06,RCG,"RENN Fund, Inc.",HORIZON KINETICS ASSET MANAGEMENT LLC,,P,Open-market buy,756.0,2.97,2245.32,A,000143774926026490
 2026-08-07,2026-08-06,TPL,Texas Pacific Land Corp,HORIZON KINETICS ASSET MANAGEMENT LLC,,P,Open-market buy,1.0,355.62,355.62,A,000143774926026469
 2026-08-07,2026-08-06,DGICA,DONEGAL GROUP INC,DONEGAL MUTUAL INSURANCE CO,,P,Open-market buy,18000.0,19.67,354060.0,A,000093559626000016
 2026-08-07,2026-08-06,DGICA,DONEGAL GROUP INC,HOFFMAN CHRISTINA MARIE,Sr. VP & Chief Risk Officer,S,Open-market sell,18000.0,19.67,354060.0,D,000181068026000003
@@ -15,6 +16,7 @@ filed_date,transaction_date,ticker,company,insider_name,insider_title,transactio
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Biswas Sanjit,CHIEF EXECUTIVE OFFICER,S,Open-market sell,56690.0,37.8859,2147751.67,D,000189511126000016
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Biswas Sanjit,CHIEF EXECUTIVE OFFICER,S,Open-market sell,400.0,38.2713,15308.52,D,000189511126000016
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,57267.0,37.8883,2169749.28,D,000189510626000017
+2026-08-07,2026-08-05,NWPP,NEW PEOPLES BANKSHARES INC,White Blaine Scott,Director,P,Open-market buy,1716.0,4.35,7464.6,A,000190359626000292
 2026-08-07,2026-08-05,AUDC,AUDIOCODES LTD,Baruch Niran,Chief Financial Officer,S,Open-market sell,1875.0,9.8357,18441.94,D,000197640826000710
 2026-08-07,2026-08-05,AUDC,AUDIOCODES LTD,Aldema Lior,EVP and Chief Business Officer,S,Open-market sell,2812.0,9.8555,27713.67,D,000197640826000709
 2026-08-07,2026-08-05,SE,Sea Ltd,Ye Gang,COO,S,Open-market sell,1493.0,112.44,167872.92,D,000119312526339009
@@ -166,3 +168,7 @@ filed_date,transaction_date,ticker,company,insider_name,insider_title,transactio
 2026-08-06,2026-08-04,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,9200.0,38.1537,351014.04,D,000189510626000017
 2026-08-06,2026-08-04,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,2319.0,37.7792,87609.96,D,000189510626000017
 2026-08-06,2026-08-04,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,25352.0,38.4189,973995.95,D,000189510626000017
+2026-08-07,2026-07-14,BAFN,BayFirst Financial Corp.,Rogers Alfred Tate Jr,CEO & President,S,Open-market sell,148564.0,,,A,000213632726000005
+2026-08-07,2026-07-14,BAFN,BayFirst Financial Corp.,Rogers Alfred Tate Jr,CEO & President,S,Open-market sell,279986.0,,,A,000213632726000005
+2026-08-07,2026-07-14,BAFN,BayFirst Financial Corp.,Rogers Alfred Tate Jr,CEO & President,S,Open-market sell,22856.0,,,A,000213632726000005
+2026-08-07,2026-07-14,BAFN,BayFirst Financial Corp.,Rogers Alfred Tate Jr,CEO & President,S,Open-market sell,691394.0,,,A,000213632726000005
