@@ -311,6 +311,15 @@ def load_public_signals():
                 target_pct = round((target_num / entry_num - 1) * 100, 1)
         except (NameError, TypeError, ValueError):
             pass
+        risk_reward = None
+        try:
+            stop_num = float(stop_loss)
+            reward = target_num - entry_num
+            risk = entry_num - stop_num
+            if np.isfinite(risk) and np.isfinite(reward) and risk > 0 and reward > 0:
+                risk_reward = round(reward / risk, 1)
+        except (NameError, TypeError, ValueError):
+            pass
         try:
             model_allocation_pct = float(model_allocation_pct)
             if not np.isfinite(model_allocation_pct):
@@ -330,6 +339,7 @@ def load_public_signals():
             "entry_price": entry_price,
             "take_profit": None if pd.isna(take_profit) else take_profit,
             "target_pct": target_pct,
+            "risk_reward": risk_reward,
             "max_hold": None if pd.isna(max_hold) else max_hold,
             "stop_loss": None if pd.isna(stop_loss) else stop_loss,
             "model_allocation_pct": model_allocation_pct,
@@ -1699,6 +1709,9 @@ table.filings .amt { text-align: right; }
 .signal-framework-cell small { font-size: 12px; color: var(--text-3); }
 .signal-brief-body { margin-top: 16px; }
 .signal-insider-line { font-size: 13.5px; color: var(--text-2); padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--border-hair); }
+.signal-track-line { font-size: 12.5px; color: var(--text-2); margin-bottom: 12px; }
+.signal-track-line strong { color: var(--green); font-weight: 700; }
+.signal-track-line span { color: var(--text-3); }
 .signal-thesis-block { margin-top: 12px; }
 .signal-thesis-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
 .signal-thesis-block.signal-watch .signal-thesis-label { color: var(--amber); }
@@ -2710,12 +2723,16 @@ HOME_TEMPLATE = """
       <div class="signal-framework" aria-label="Signal framework">
         <div class="signal-framework-cell"><span>Entry reference</span><strong>${{ s.entry_price }}</strong><small>Price at scan</small></div>
         <div class="signal-framework-cell"><span>Model target</span><strong>{{ '$%.2f'|format(s.take_profit) if s.take_profit is not none else 'Not set' }}</strong><small>{{ '%+.1f'|format(s.target_pct) + '%' if s.target_pct is not none else 'No target' }}</small></div>
+        <div class="signal-framework-cell"><span>Risk / reward</span><strong>{{ s.risk_reward|string + ':1' if s.risk_reward is not none else 'Not set' }}</strong><small>Target vs. stop</small></div>
         <div class="signal-framework-cell"><span>Research window</span><strong>{{ '%.0f'|format(s.max_hold) + ' days' if s.max_hold is not none else 'Open' }}</strong><small>{{ s.hold_mode|title if s.hold_mode else 'Signal review' }}</small></div>
         <div class="signal-framework-cell"><span>Exit risk rule</span><strong>{{ '$%.2f'|format(s.stop_loss) if s.stop_loss is not none else 'No fixed stop' }}</strong><small>Model parameter</small></div>
         <div class="signal-framework-cell"><span>Model allocation</span><strong>{{ '%.2f'|format(s.model_allocation_pct)|replace('.00', '') + '%' if s.model_allocation_pct is not none else 'Not set' }}</strong><small>Model portfolio</small></div>
       </div>
       <div class="signal-brief-body">
         {% if s.insider_name %}<div class="signal-insider-line">{{ s.insider_name }}{% if s.insider_title %} &middot; {{ s.insider_title }}{% endif %}{% if s.total_amount %} &middot; ${{ "{:,.0f}".format(s.total_amount) }} purchase{% endif %}{% if s.trade_date %} &middot; {{ s.trade_date }}{% endif %}</div>{% endif %}
+        {% if rating_performance and s.rating in rating_performance %}
+        <div class="signal-track-line">Historically, {{ s.rating }}-rated signals: <strong>{{ rating_performance[s.rating].win_rate }}% win rate</strong>{% if rating_performance[s.rating].avg_return is not none %}, <strong>{{ '%+.1f'|format(rating_performance[s.rating].avg_return) }}% avg return</strong>{% endif %} <span>({{ rating_performance[s.rating].n }} resolved)</span></div>
+        {% endif %}
         <div class="signal-thesis-block">
           <div class="signal-thesis-label">Why it qualified</div>
           <p class="signal-thesis-text">{{ s.reason or 'The scanner qualified this filing, but a written thesis is not available for this record.' }}</p>
@@ -3307,6 +3324,7 @@ def home():
         market_trades=load_market_trades(),
         chart_symbol=chart_symbol,
         requested_symbol=requested_symbol,
+        rating_performance=load_rating_performance(),
     )
 
 
@@ -3381,6 +3399,37 @@ TRACK_RECORD_TEMPLATE = """
 """ + FOOTER.replace("{{ year }}", str(datetime.now().year)) + """
 </body></html>
 """
+
+
+def load_rating_performance():
+    """Real win-rate + average return per rating tier (A+/A/B+/B), computed
+    from actual resolved outcomes only -- never estimated or backfilled.
+    Skips any tier with fewer than 3 resolved trades so a single lucky (or
+    unlucky) signal can't produce a misleadingly precise stat. Returns {}
+    (honest empty state) if outcomes data isn't available yet.
+    """
+    path = os.path.join(BASE_DIR, "public_signal_outcomes.csv")
+    if not os.path.exists(path):
+        return {}
+    try:
+        df = pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        return {}
+    if df.empty or "status" not in df.columns or "rating" not in df.columns:
+        return {}
+    resolved = df[df["status"].isin(["WIN", "LOSS"])].copy()
+    if resolved.empty:
+        return {}
+    out = {}
+    for rating, group in resolved.groupby("rating"):
+        if len(group) < 3:
+            continue
+        out[rating] = {
+            "win_rate": round((group["status"] == "WIN").mean() * 100, 1),
+            "avg_return": round(group["pnl_pct"].mean(), 1) if "pnl_pct" in group.columns else None,
+            "n": int(len(group)),
+        }
+    return out
 
 
 def load_leaderboard_data():
