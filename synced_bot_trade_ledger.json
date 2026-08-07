@@ -1,7 +1,27 @@
 {
   "year": 2026,
-  "activity_as_of": "2026-08-03",
+  "activity_as_of": "2026-08-06",
   "events": [
+    {
+      "date": "2026-08-06",
+      "ticker": "BV",
+      "rating": "B",
+      "status": "OPEN SIGNAL",
+      "return_pct": null,
+      "model_allocation_pct": 15.0,
+      "resolved_date": null,
+      "source": "AI_INSIDER_BOT"
+    },
+    {
+      "date": "2026-08-04",
+      "ticker": "DMC",
+      "rating": "A",
+      "status": "OPEN SIGNAL",
+      "return_pct": null,
+      "model_allocation_pct": 20.0,
+      "resolved_date": null,
+      "source": "AI_INSIDER_BOT"
+    },
     {
       "date": "2026-08-03",
       "ticker": "HLI",
