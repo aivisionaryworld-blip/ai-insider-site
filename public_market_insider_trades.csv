@@ -1,5 +1,12 @@
 filed_date,transaction_date,ticker,company,insider_name,insider_title,transaction_code,transaction_type,shares,price,value,acquired_disposed,accession_no
+2026-08-07,2026-08-07,BJRI,BJs RESTAURANTS INC,Miller Kendra D,EVP & General Counsel,S,Open-market sell,2978.0,69.8,207864.4,D,000119312526340569
+2026-08-07,2026-08-07,FMAO,FARMERS & MERCHANTS BANCORP INC,Briggs Andrew J,,S,Open-market sell,3000.0,34.08,102240.0,D,000119312526340562
 2026-08-07,2026-08-07,MSEX,MIDDLESEX WATER CO,Ginegaw Lorrie Beth,"VP, Human Resources",S,Open-market sell,615.0,57.61,35430.15,D,000162828026054754
+2026-08-07,2026-08-06,BJRI,BJs RESTAURANTS INC,Miller Kendra D,EVP & General Counsel,S,Open-market sell,10217.0,69.31,708140.27,D,000119312526340569
+2026-08-07,2026-08-06,BFST,"Business First Bancshares, Inc.",Carter Donald Chad,"EVP, Correspondent Banking",S,Open-market sell,1875.0,31.64,59325.0,D,000143774926026616
+2026-08-07,2026-08-06,FMAO,FARMERS & MERCHANTS BANCORP INC,Briggs Andrew J,,S,Open-market sell,3000.0,34.24,102720.0,D,000119312526340562
+2026-08-07,2026-08-06,JNJ,JOHNSON & JOHNSON,Forminard Elizabeth,"EVP, Chief Legal Officer",S,Open-market sell,9344.0,257.755,2408462.72,D,000020040626000169
+2026-08-07,2026-08-06,JNJ,JOHNSON & JOHNSON,Forminard Elizabeth,"EVP, Chief Legal Officer",S,Open-market sell,6574.0,255.932,1682496.97,D,000020040626000169
 2026-08-07,2026-08-06,ZM,"Zoom Communications, Inc.",Yuan Eric S.,Chief Executive Officer,S,Open-market sell,355.0,98.864,35096.72,D,000158552126000113
 2026-08-07,2026-08-06,ZM,"Zoom Communications, Inc.",Yuan Eric S.,Chief Executive Officer,S,Open-market sell,8786.0,100.0308,878870.61,D,000158552126000113
 2026-08-07,2026-08-06,ZM,"Zoom Communications, Inc.",Yuan Eric S.,Chief Executive Officer,S,Open-market sell,2959.0,100.8478,298408.64,D,000158552126000113
@@ -37,6 +44,8 @@ filed_date,transaction_date,ticker,company,insider_name,insider_title,transactio
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Biswas Sanjit,CHIEF EXECUTIVE OFFICER,S,Open-market sell,56690.0,37.8859,2147751.67,D,000189511126000016
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Biswas Sanjit,CHIEF EXECUTIVE OFFICER,S,Open-market sell,400.0,38.2713,15308.52,D,000189511126000016
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,57267.0,37.8883,2169749.28,D,000189510626000017
+2026-08-07,2026-08-05,JNJ,JOHNSON & JOHNSON,Duato Joaquin,CEO and Chairman of the Board,S,Open-market sell,41957.0,258.056,10827255.59,D,000020040626000171
+2026-08-07,2026-08-05,JNJ,JOHNSON & JOHNSON,Duato Joaquin,CEO and Chairman of the Board,S,Open-market sell,6523.0,258.739,1687754.5,D,000020040626000171
 2026-08-07,2026-08-05,ZM,"Zoom Communications, Inc.",Yuan Eric S.,Chief Executive Officer,S,Open-market sell,7111.0,99.7572,709373.45,D,000158552126000113
 2026-08-07,2026-08-05,ZM,"Zoom Communications, Inc.",Yuan Eric S.,Chief Executive Officer,S,Open-market sell,4167.0,100.5899,419158.11,D,000158552126000113
 2026-08-07,2026-08-05,ZM,"Zoom Communications, Inc.",Yuan Eric S.,Chief Executive Officer,S,Open-market sell,754.0,101.5826,76593.28,D,000158552126000113
