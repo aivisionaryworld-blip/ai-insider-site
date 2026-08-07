@@ -1,4 +1,7 @@
 filed_date,transaction_date,ticker,company,insider_name,insider_title,transaction_code,transaction_type,shares,price,value,acquired_disposed,accession_no
+2026-08-07,2026-08-06,TPL,Texas Pacific Land Corp,HORIZON KINETICS ASSET MANAGEMENT LLC,,P,Open-market buy,1.0,355.62,355.62,A,000143774926026469
+2026-08-07,2026-08-06,DGICA,DONEGAL GROUP INC,DONEGAL MUTUAL INSURANCE CO,,P,Open-market buy,18000.0,19.67,354060.0,A,000093559626000016
+2026-08-07,2026-08-06,DGICA,DONEGAL GROUP INC,HOFFMAN CHRISTINA MARIE,Sr. VP & Chief Risk Officer,S,Open-market sell,18000.0,19.67,354060.0,D,000181068026000003
 2026-08-07,2026-08-06,AUDC,AUDIOCODES LTD,Baruch Niran,Chief Financial Officer,S,Open-market sell,1875.0,9.95,18656.25,D,000197640826000710
 2026-08-07,2026-08-06,AUDC,AUDIOCODES LTD,Aldema Lior,EVP and Chief Business Officer,S,Open-market sell,2812.0,9.9464,27969.28,D,000197640826000709
 2026-08-07,2026-08-06,SE,Sea Ltd,Ye Gang,COO,S,Open-market sell,13005.0,111.3,1447456.5,D,000119312526339009
