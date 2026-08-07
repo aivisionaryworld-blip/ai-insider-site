@@ -1565,11 +1565,10 @@ table.filings .amt { text-align: right; }
 .market-panel-head span { display: block; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-3); }
 .market-panel-head strong { font-family: 'Inter', -apple-system, sans-serif; font-size: 16px; }
 .market-delay-note { font-size: 12px; color: var(--text-3); max-width: 220px; text-align: right; }
-.tradingview-widget-container { height: 1000px; }
-.tradingview-widget-container__widget { height: calc(100% - 22px); }
+.tradingview-widget-container { min-height: 820px; }
+.tradingview-widget-container__widget { min-height: 820px; }
 .tradingview-widget-copyright { font-size: 12px; color: var(--text-3); padding: 4px 20px; }
 .tradingview-widget-copyright a { color: var(--text-3); }
-@media (max-width: 900px) { .tradingview-widget-container { height: 640px; } }
 
 .market-snapshot-list { display: flex; flex-direction: column; gap: 14px; }
 @media (max-width: 900px) { .market-snapshot-list { display: grid; grid-template-columns: 1fr 1fr; } }
@@ -2573,7 +2572,8 @@ HOME_TEMPLATE = """
           "backgroundColor": "rgba(8, 12, 16, 0)",
           "gridColor": "rgba(255, 255, 255, 0.05)",
           "withdateranges": true,
-          "autosize": true
+          "width": "100%",
+          "height": 820
         }
         </script>
       </div>
