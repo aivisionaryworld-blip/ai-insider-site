@@ -1,7 +1,14 @@
 filed_date,transaction_date,ticker,company,insider_name,insider_title,transaction_code,transaction_type,shares,price,value,acquired_disposed,accession_no
+2026-08-07,2026-08-07,APCX,AppTech Payments Corp.,LORD ALBERT L,Director,P,Open-market buy,20000.0,0.3976,7952.0,A,000168316826006107
 2026-08-07,2026-08-07,BJRI,BJs RESTAURANTS INC,Miller Kendra D,EVP & General Counsel,S,Open-market sell,2978.0,69.8,207864.4,D,000119312526340569
 2026-08-07,2026-08-07,FMAO,FARMERS & MERCHANTS BANCORP INC,Briggs Andrew J,,S,Open-market sell,3000.0,34.08,102240.0,D,000119312526340562
 2026-08-07,2026-08-07,MSEX,MIDDLESEX WATER CO,Ginegaw Lorrie Beth,"VP, Human Resources",S,Open-market sell,615.0,57.61,35430.15,D,000162828026054754
+2026-08-07,2026-08-06,SN,"SharkNinja, Inc.",Barrocas Mark,Chief Executive Officer,S,Open-market sell,250000.0,185.0,46250000.0,D,000090883426000386
+2026-08-07,2026-08-06,APCX,AppTech Payments Corp.,LORD ALBERT L,Director,P,Open-market buy,20000.0,0.3986,7972.0,A,000168316826006107
+2026-08-07,2026-08-06,AMGN,AMGEN INC,Miller Derek,"SVP, Human Resources",S,Open-market sell,2069.0,402.5444,832864.36,D,000031815426000130
+2026-08-07,2026-08-06,AMGN,AMGEN INC,Miller Derek,"SVP, Human Resources",S,Open-market sell,1821.0,402.5444,733033.35,D,000031815426000130
+2026-08-07,2026-08-06,AMGN,AMGEN INC,Grygiel Nancy A.,SVP & CCO,S,Open-market sell,1970.0,402.1601,792255.4,D,000031815426000129
+2026-08-07,2026-08-06,AMGN,AMGEN INC,Grygiel Nancy A.,SVP & CCO,S,Open-market sell,1000.0,402.1601,402160.1,D,000031815426000129
 2026-08-07,2026-08-06,BJRI,BJs RESTAURANTS INC,Miller Kendra D,EVP & General Counsel,S,Open-market sell,10217.0,69.31,708140.27,D,000119312526340569
 2026-08-07,2026-08-06,BFST,"Business First Bancshares, Inc.",Carter Donald Chad,"EVP, Correspondent Banking",S,Open-market sell,1875.0,31.64,59325.0,D,000143774926026616
 2026-08-07,2026-08-06,FMAO,FARMERS & MERCHANTS BANCORP INC,Briggs Andrew J,,S,Open-market sell,3000.0,34.24,102720.0,D,000119312526340562
@@ -44,6 +51,71 @@ filed_date,transaction_date,ticker,company,insider_name,insider_title,transactio
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Biswas Sanjit,CHIEF EXECUTIVE OFFICER,S,Open-market sell,56690.0,37.8859,2147751.67,D,000189511126000016
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Biswas Sanjit,CHIEF EXECUTIVE OFFICER,S,Open-market sell,400.0,38.2713,15308.52,D,000189511126000016
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,57267.0,37.8883,2169749.28,D,000189510626000017
+2026-08-07,2026-08-05,SN,"SharkNinja, Inc.",Barrocas Mark,Chief Executive Officer,S,Open-market sell,250000.0,170.0,42500000.0,D,000090883426000386
+2026-08-07,2026-08-05,APCX,AppTech Payments Corp.,LORD ALBERT L,Director,P,Open-market buy,20000.0,0.3945,7890.0,A,000168316826006107
+2026-08-07,2026-08-05,SCHW,SCHWAB CHARLES CORP,Schwab-Pomerantz Carolyn,Director,S,Open-market sell,18561.0,107.6998,1999015.99,D,000195078726000014
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,4516.0,193.7561,875002.55,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,3876.0,194.9151,755490.93,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,3524.0,195.6154,689348.67,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,1151.0,191.6242,220559.45,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,3469.0,192.7477,668641.77,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,18320.0,197.8517,3624643.14,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,13297.0,198.8446,2644036.65,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,11487.0,199.7651,2294701.7,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,10909.0,200.8413,2190977.74,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,10521.0,201.5508,2120515.97,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,27565.0,202.9437,5594143.09,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,47587.0,203.7481,9695760.83,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,37355.0,204.6274,7643856.53,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,24461.0,205.9397,5037491.0,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,112.0,213.17,23875.04,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,1585.0,209.9468,332765.68,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,4636.0,208.5873,967010.72,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,58978.0,207.6912,12249211.59,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,8500.0,206.6865,1756835.25,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",BECHTOLSHEIM ANDREAS,,S,Open-market sell,8151.0,196.8862,1604819.42,D,000159653226000186
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,152860.0,197.116,30131151.76,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,27292.0,198.5433,5418643.74,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,54399.0,199.5091,10853095.53,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,17132.0,200.4263,3433703.37,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,369569.0,201.2927,74391541.85,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,2428.0,202.3871,491395.88,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,33931.0,203.5675,6907248.84,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,28776.0,204.7292,5891287.46,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,26722.0,205.6127,5494382.57,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,1601.0,207.0532,331492.17,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,10640.0,207.871,2211747.44,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,1023.0,209.0,213807.0,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,35337.0,210.5985,7441919.19,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,1495.0,211.734,316542.33,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,3824.0,212.6377,813126.56,D,000159653226000185
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,102.0,197.116,20105.83,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,18.0,205.6127,3701.03,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,37.0,199.5091,7381.84,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,12.0,200.4263,2405.12,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,248.0,201.2927,49920.59,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,2.0,202.3871,404.77,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,23.0,203.5675,4682.05,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,19.0,204.7292,3889.85,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,1.0,211.734,211.73,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,7.0,207.871,1455.1,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,24.0,210.5985,5054.36,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,3.0,212.6377,637.91,D,000159653226000184
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,33027.0,197.116,6510150.13,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,5897.0,198.5433,1170809.84,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,11753.0,199.5091,2344830.45,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,3701.0,200.4263,741777.74,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,79845.0,201.2927,16072215.63,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,524.0,202.3871,106050.84,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,7331.0,203.5675,1492353.34,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,6217.0,204.7292,1272801.44,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,5773.0,205.6127,1187002.12,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,346.0,207.0532,71640.41,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,2298.0,207.871,477687.56,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,221.0,209.0,46189.0,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,7635.0,210.5985,1607919.55,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,323.0,211.734,68390.08,D,000159653226000183
+2026-08-07,2026-08-05,ANET,"Arista Networks, Inc.",Ullal Jayshree,CEO and Chairperson,S,Open-market sell,826.0,212.6377,175638.74,D,000159653226000183
 2026-08-07,2026-08-05,JNJ,JOHNSON & JOHNSON,Duato Joaquin,CEO and Chairman of the Board,S,Open-market sell,41957.0,258.056,10827255.59,D,000020040626000171
 2026-08-07,2026-08-05,JNJ,JOHNSON & JOHNSON,Duato Joaquin,CEO and Chairman of the Board,S,Open-market sell,6523.0,258.739,1687754.5,D,000020040626000171
 2026-08-07,2026-08-05,ZM,"Zoom Communications, Inc.",Yuan Eric S.,Chief Executive Officer,S,Open-market sell,7111.0,99.7572,709373.45,D,000158552126000113
