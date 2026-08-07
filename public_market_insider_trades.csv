@@ -1,4 +1,6 @@
 filed_date,transaction_date,ticker,company,insider_name,insider_title,transaction_code,transaction_type,shares,price,value,acquired_disposed,accession_no
+2026-08-07,2026-08-06,AUDC,AUDIOCODES LTD,Baruch Niran,Chief Financial Officer,S,Open-market sell,1875.0,9.95,18656.25,D,000197640826000710
+2026-08-07,2026-08-06,AUDC,AUDIOCODES LTD,Aldema Lior,EVP and Chief Business Officer,S,Open-market sell,2812.0,9.9464,27969.28,D,000197640826000709
 2026-08-07,2026-08-06,SE,Sea Ltd,Ye Gang,COO,S,Open-market sell,13005.0,111.3,1447456.5,D,000119312526339009
 2026-08-07,2026-08-06,SE,Sea Ltd,Ye Gang,COO,S,Open-market sell,6995.0,111.86,782460.7,D,000119312526339009
 2026-08-07,2026-08-06,SE,Sea Ltd,Wang Yanjun,CCO and GC,S,Open-market sell,1066.0,111.24,118581.84,D,000119312526339004
@@ -10,6 +12,8 @@ filed_date,transaction_date,ticker,company,insider_name,insider_title,transactio
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Biswas Sanjit,CHIEF EXECUTIVE OFFICER,S,Open-market sell,56690.0,37.8859,2147751.67,D,000189511126000016
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Biswas Sanjit,CHIEF EXECUTIVE OFFICER,S,Open-market sell,400.0,38.2713,15308.52,D,000189511126000016
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,57267.0,37.8883,2169749.28,D,000189510626000017
+2026-08-07,2026-08-05,AUDC,AUDIOCODES LTD,Baruch Niran,Chief Financial Officer,S,Open-market sell,1875.0,9.8357,18441.94,D,000197640826000710
+2026-08-07,2026-08-05,AUDC,AUDIOCODES LTD,Aldema Lior,EVP and Chief Business Officer,S,Open-market sell,2812.0,9.8555,27713.67,D,000197640826000709
 2026-08-07,2026-08-05,SE,Sea Ltd,Ye Gang,COO,S,Open-market sell,1493.0,112.44,167872.92,D,000119312526339009
 2026-08-07,2026-08-05,SE,Sea Ltd,Ye Gang,COO,S,Open-market sell,12638.0,113.44,1433654.72,D,000119312526339009
 2026-08-07,2026-08-05,SE,Sea Ltd,Ye Gang,COO,S,Open-market sell,5869.0,114.31,670885.39,D,000119312526339009
