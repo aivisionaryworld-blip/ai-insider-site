@@ -1,4 +1,5 @@
 filed_date,transaction_date,ticker,company,insider_name,insider_title,transaction_code,transaction_type,shares,price,value,acquired_disposed,accession_no
+2026-08-07,2026-08-07,LARK,LANDMARK BANCORP INC,Kohlrus Mark J.,Director,P,Open-market buy,799.0,31.8344,25435.69,A,000149315226036700
 2026-08-07,2026-08-07,KNTK,Kinetik Holdings Inc.,ISQ Global Fund II GP LLC,,S,Open-market sell,26550.0,50.2424,1333935.72,D,000090514826003534
 2026-08-07,2026-08-07,SN,"SharkNinja, Inc.",Shah Neil B.,Chief Commercial Officer,S,Open-market sell,22723.0,186.67,4241702.41,D,000090883426000388
 2026-08-07,2026-08-07,SN,"SharkNinja, Inc.",Shah Neil B.,Chief Commercial Officer,S,Open-market sell,6944.0,187.07,1299014.08,D,000090883426000388
@@ -27,6 +28,7 @@ filed_date,transaction_date,ticker,company,insider_name,insider_title,transactio
 2026-08-07,2026-08-07,BJRI,BJs RESTAURANTS INC,Miller Kendra D,EVP & General Counsel,S,Open-market sell,2978.0,69.8,207864.4,D,000119312526340569
 2026-08-07,2026-08-07,FMAO,FARMERS & MERCHANTS BANCORP INC,Briggs Andrew J,,S,Open-market sell,3000.0,34.08,102240.0,D,000119312526340562
 2026-08-07,2026-08-07,MSEX,MIDDLESEX WATER CO,Ginegaw Lorrie Beth,"VP, Human Resources",S,Open-market sell,615.0,57.61,35430.15,D,000162828026054754
+2026-08-07,2026-08-06,LARK,LANDMARK BANCORP INC,Kohlrus Mark J.,Director,P,Open-market buy,201.0,31.5,6331.5,A,000149315226036700
 2026-08-07,2026-08-06,KNTK,Kinetik Holdings Inc.,ISQ Global Fund II GP LLC,,S,Open-market sell,210552.0,50.4619,10624853.97,D,000090514826003534
 2026-08-07,2026-08-06,KNTK,Kinetik Holdings Inc.,ISQ Global Fund II GP LLC,,S,Open-market sell,24797.0,51.0219,1265190.05,D,000090514826003534
 2026-08-07,2026-08-06,SCHL,SCHOLASTIC CORP,Quinton Sasha,"EVP, Pres. CBG",S,Open-market sell,5139.0,41.738,214491.58,D,000179946126000003
