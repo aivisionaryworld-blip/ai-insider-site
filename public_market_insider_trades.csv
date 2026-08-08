@@ -1,4 +1,6 @@
 filed_date,transaction_date,ticker,company,insider_name,insider_title,transaction_code,transaction_type,shares,price,value,acquired_disposed,accession_no
+2026-08-07,2026-08-07,SN,"SharkNinja, Inc.",Shah Neil B.,Chief Commercial Officer,S,Open-market sell,22723.0,186.67,4241702.41,D,000090883426000388
+2026-08-07,2026-08-07,SN,"SharkNinja, Inc.",Shah Neil B.,Chief Commercial Officer,S,Open-market sell,6944.0,187.07,1299014.08,D,000090883426000388
 2026-08-07,2026-08-07,PUBM,"PubMatic, Inc.",Goel Rajeev K.,CHIEF EXECUTIVE OFFICER,S,Open-market sell,211302.0,17.7444,3749427.21,D,000183351126000034
 2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Medway Richard A.,General Counsel,S,Open-market sell,15000.0,12.48,187200.0,D,000188331326000065
 2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Geisser Melinda L.,Chief People Services Officer,S,Open-market sell,15000.0,11.98,179700.0,D,000188331326000064
