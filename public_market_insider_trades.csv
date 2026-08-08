@@ -1,9 +1,33 @@
 filed_date,transaction_date,ticker,company,insider_name,insider_title,transaction_code,transaction_type,shares,price,value,acquired_disposed,accession_no
+2026-08-07,2026-08-07,PUBM,"PubMatic, Inc.",Goel Rajeev K.,CHIEF EXECUTIVE OFFICER,S,Open-market sell,211302.0,17.7444,3749427.21,D,000183351126000034
+2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Medway Richard A.,General Counsel,S,Open-market sell,15000.0,12.48,187200.0,D,000188331326000065
+2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Geisser Melinda L.,Chief People Services Officer,S,Open-market sell,15000.0,11.98,179700.0,D,000188331326000064
+2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Geisser Melinda L.,Chief People Services Officer,S,Open-market sell,20000.0,12.48,249600.0,D,000188331326000064
+2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Maher Michael W,CFO & Treasurer,S,Open-market sell,44742.0,12.3347,551879.15,D,000188331326000063
+2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Maher Michael W,CFO & Treasurer,S,Open-market sell,5000.0,12.3077,61538.5,D,000188331326000063
+2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Walsh Mark T.,CEO & Director,S,Open-market sell,13062.0,11.6641,152356.47,D,000188331326000062
+2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Walsh Mark T.,CEO & Director,S,Open-market sell,36938.0,12.3846,457462.35,D,000188331326000062
+2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Walsh Mark T.,CEO & Director,S,Open-market sell,13036.0,11.6716,152150.98,D,000188331326000062
+2026-08-07,2026-08-07,SVV,"Savers Value Village, Inc.",Walsh Mark T.,CEO & Director,S,Open-market sell,36964.0,12.383,457725.21,D,000188331326000062
+2026-08-07,2026-08-07,NTRA,"Natera, Inc.",Rabinowitz Matthew,EXECUTIVE CHAIRMAN,S,Open-market sell,2000.0,320.9,641800.0,D,000164638226000018
+2026-08-07,2026-08-07,NTRA,"Natera, Inc.",Sheena Jonathan,,S,Open-market sell,100.0,318.63,31863.0,D,000164664926000029
+2026-08-07,2026-08-07,NTRA,"Natera, Inc.",Sheena Jonathan,,S,Open-market sell,400.0,311.8788,124751.52,D,000164664926000029
+2026-08-07,2026-08-07,NTRA,"Natera, Inc.",Sheena Jonathan,,S,Open-market sell,900.0,313.0672,281760.48,D,000164664926000029
+2026-08-07,2026-08-07,NTRA,"Natera, Inc.",Sheena Jonathan,,S,Open-market sell,850.0,314.2517,267113.95,D,000164664926000029
+2026-08-07,2026-08-07,NTRA,"Natera, Inc.",Sheena Jonathan,,S,Open-market sell,600.0,315.3175,189190.5,D,000164664926000029
+2026-08-07,2026-08-07,NTRA,"Natera, Inc.",Sheena Jonathan,,S,Open-market sell,5111.0,316.6118,1618202.91,D,000164664926000029
+2026-08-07,2026-08-07,NTRA,"Natera, Inc.",Sheena Jonathan,,S,Open-market sell,200.0,317.965,63593.0,D,000164664926000029
+2026-08-07,2026-08-07,NTRA,"Natera, Inc.",Sheena Jonathan,,S,Open-market sell,489.0,320.9,156920.1,D,000164664926000029
+2026-08-07,2026-08-07,NMM,Navios Maritime Partners L.P.,Frangou Angeliki,See Remarks,P,Open-market buy,1054.0,78.938,83200.65,A,000119312526340786
 2026-08-07,2026-08-07,CCB,COASTAL FINANCIAL CORP,Adams Christopher D,Executive Chair,P,Open-market buy,290.0,45.15,13093.5,A,000174362226000004
 2026-08-07,2026-08-07,APCX,AppTech Payments Corp.,LORD ALBERT L,Director,P,Open-market buy,20000.0,0.3976,7952.0,A,000168316826006107
 2026-08-07,2026-08-07,BJRI,BJs RESTAURANTS INC,Miller Kendra D,EVP & General Counsel,S,Open-market sell,2978.0,69.8,207864.4,D,000119312526340569
 2026-08-07,2026-08-07,FMAO,FARMERS & MERCHANTS BANCORP INC,Briggs Andrew J,,S,Open-market sell,3000.0,34.08,102240.0,D,000119312526340562
 2026-08-07,2026-08-07,MSEX,MIDDLESEX WATER CO,Ginegaw Lorrie Beth,"VP, Human Resources",S,Open-market sell,615.0,57.61,35430.15,D,000162828026054754
+2026-08-07,2026-08-06,ATTO,"Attovia Therapeutics, Inc.","Redmile Group, LLC",,P,Open-market buy,200000.0,17.0,3400000.0,A,000110465926092867
+2026-08-07,2026-08-06,ATTO,"Attovia Therapeutics, Inc.","Redmile Group, LLC",,P,Open-market buy,400000.0,17.0,6800000.0,A,000110465926092867
+2026-08-07,2026-08-06,SVV,"Savers Value Village, Inc.",Walsh Mark T.,CEO & Director,S,Open-market sell,50000.0,10.9209,546045.0,D,000188331326000062
+2026-08-07,2026-08-06,NMM,Navios Maritime Partners L.P.,Frangou Angeliki,See Remarks,P,Open-market buy,1063.0,79.5271,84537.31,A,000119312526340786
 2026-08-07,2026-08-06,ROKU,"ROKU, INC",Fuchsberg Gilbert,"President, Subscriptions",S,Open-market sell,10719.0,150.0,1607850.0,D,000193726326000008
 2026-08-07,2026-08-06,CCB,COASTAL FINANCIAL CORP,HOVDE STEVEN D,Director,P,Open-market buy,10000.0,43.825,438250.0,A,000101996626000004
 2026-08-07,2026-08-06,CCB,COASTAL FINANCIAL CORP,Sprink Eric M,CEO,P,Open-market buy,10000.0,44.45,444500.0,A,000129964726000020
@@ -55,6 +79,11 @@ filed_date,transaction_date,ticker,company,insider_name,insider_title,transactio
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Biswas Sanjit,CHIEF EXECUTIVE OFFICER,S,Open-market sell,56690.0,37.8859,2147751.67,D,000189511126000016
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Biswas Sanjit,CHIEF EXECUTIVE OFFICER,S,Open-market sell,400.0,38.2713,15308.52,D,000189511126000016
 2026-08-06,2026-08-06,IOT,Samsara Inc.,Bicket John,SEE REMARKS,S,Open-market sell,57267.0,37.8883,2169749.28,D,000189510626000017
+2026-08-07,2026-08-05,SVV,"Savers Value Village, Inc.",Medway Richard A.,General Counsel,S,Open-market sell,10000.0,10.98,109800.0,D,000188331326000065
+2026-08-07,2026-08-05,SVV,"Savers Value Village, Inc.",Geisser Melinda L.,Chief People Services Officer,S,Open-market sell,15000.0,10.98,164700.0,D,000188331326000064
+2026-08-07,2026-08-05,SVV,"Savers Value Village, Inc.",Walsh Mark T.,CEO & Director,S,Open-market sell,7941.0,11.0248,87547.94,D,000188331326000062
+2026-08-07,2026-08-05,NMM,Navios Maritime Partners L.P.,Frangou Angeliki,See Remarks,P,Open-market buy,1064.0,78.4133,83431.75,A,000119312526340786
+2026-08-07,2026-08-05,NLST,NETLIST INC,SASAKI GAIL M,EVP and CFO,S,Open-market sell,25000.0,3.99,99750.0,D,000110465926092853
 2026-08-07,2026-08-05,CCB,COASTAL FINANCIAL CORP,HOVDE STEVEN D,Director,P,Open-market buy,5000.0,44.0,220000.0,A,000101996626000004
 2026-08-07,2026-08-05,LHAI,Linkhome Holdings Inc.,Qin Zhen,CEO and Chairman,S,Open-market sell,625000.0,0.8,500000.0,D,000121390026086889
 2026-08-07,2026-08-05,KTOS,"KRATOS DEFENSE & SECURITY SOLUTIONS, INC.",Carter David M,"President, DRSS Division",S,Open-market sell,2100.0,55.3405,116215.05,D,000150941226000009
