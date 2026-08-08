@@ -970,26 +970,26 @@ BASE_CSS = """
 
   --text: #0c1524;
   --text-2: #45516a;
-  --text-3: #6b788f;
+  --text-3: #5a6578;
   --muted: #45516a;
 
-  --accent: #0089ab;
+  --accent: #006e89;
   --accent-dim: rgba(0, 137, 171, 0.1);
-  --lime: #7a7a10;
+  --lime: #68680e;
   --lime-dim: rgba(122, 122, 16, 0.12);
-  --green: #067a56;
+  --green: #067351;
   --green-dim: rgba(6, 122, 86, 0.1);
-  --blue: #1c64d1;
+  --blue: #1b60c9;
   --blue-dim: rgba(28, 100, 209, 0.1);
-  --violet: #6a51e0;
-  --amber: #a2680a;
+  --violet: #644adf;
+  --amber: #8c5a09;
   --amber-dim: rgba(162, 104, 10, 0.12);
-  --red: #c62b45;
+  --red: #bd2942;
   --red-dim: rgba(198, 43, 69, 0.1);
 
   --aplus: var(--amber);
   --a: var(--green);
-  --b: #4a6fa5;
+  --b: #446697;
 
   --glass-fill: linear-gradient(158deg, rgba(255,255,255,.7) 0%, rgba(255,255,255,.3) 42%, rgba(255,255,255,.14) 68%, rgba(255,255,255,.4) 100%);
   --rim: inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(15,23,42,.05), inset 1px 0 0 rgba(15,23,42,.03), inset -1px 0 0 rgba(15,23,42,.03);
