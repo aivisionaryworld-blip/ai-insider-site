@@ -893,7 +893,7 @@ BASE_CSS = """
   /* text */
   --text: #f1f5fb;
   --text-2: #a4b0c2;
-  --text-3: #6c7690;
+  --text-3: #7b849c;
   --muted: #a4b0c2;
 
   /* brand / signal triad — kept in exact sync with the canvas chart JS */
